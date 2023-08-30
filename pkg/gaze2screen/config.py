@@ -7,8 +7,8 @@ class Config:
             self.version = 101
 
             # Checkpoint to load l2s model from
-            self.checkpoint = f'cache/gaze2screen/checkpoints/l2s_v{self.version}.pth'
-            self.dataset_path = f'cache/gaze2screen/checkpoints/l2s_v{self.version}_db.pth'
+            self.checkpoint = f'cache/checkpoints/l2s_v{self.version}.pth'
+            self.dataset_path = f'cache/checkpoints/l2s_v{self.version}_db.pth'
 
             # Max capacity of dataset.
             # The dataset is a ring buffer, so data can be continuously added (loses the oldest data).

@@ -3320,10 +3320,6 @@ class Subject extends (eventemitter3__WEBPACK_IMPORTED_MODULE_0___default()) {
         this.targetTimeMs = t;
     }
     gazeDetector;
-    // private last_spoke_t: number = Date.now()
-    // public get silentTimeMs(): number {
-    //     return Date.now() - this.last_spoke_t;
-    // }
     async StopGazeDetection() {
         if (this.gazeDetector) {
             await this.gazeDetector.term();
@@ -3375,11 +3371,6 @@ class Subject extends (eventemitter3__WEBPACK_IMPORTED_MODULE_0___default()) {
         if (!this.gazeDetector)
             this.gazeDetector = new _GazeDetector__WEBPACK_IMPORTED_MODULE_1__.GazeDetector(document.getElementById("vidCap"), true);
         const vidcap_overlay = document.getElementById('vidCapOverlay');
-        const blink_n_frames = 3;
-        const open_n_frames = 5;
-        const no_face_detected_n_frames = 30;
-        let stabilizing_frames_remaining = 5; // Number of frames remaining before we start eye detection
-        let last_eyeState_numFrames = 0; // Number of frames that the eye state has remained unchanged
         this.gazeDetector.on('GazeDetectionComplete', (features) => {
             // @ts-ignore
             vidcap_overlay.innerText = `${this.gazeDetector.FrameRate.toFixed(0)} FPS`;
