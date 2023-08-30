@@ -1,0 +1,13 @@
+/node_modules/
+/dist/
+**/*.js.map
+.idea/
+/_private/
+/__pycache__/ 
+src/**/*.js
+src/**/*.js.map
+prosody/
+cache/render/*
+cache/kvstore/*
+/iClone/AvatarVisemeTransitions.iProject
+/iClone/AvatarIdle.iProject

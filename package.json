@@ -1,0 +1,26 @@
+{
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.4",
+    "@types/webpack-env": "^1.15.1",
+    "eventemitter3": "^4.0.0",
+    "filemanager-webpack-plugin": "^8.0.0",
+    "ndarray": "latest",
+    "typescript": "^4.7.4"
+  },
+  "devDependencies": {
+    "@types/ndarray": "^1.0.11",
+    "ts-loader": "^9.3.1",
+    "webpack": "^5.74.0",
+    "webpack-cli": "^4.10.0",
+    "webpack-dev-server": "^4.15.1"
+  },
+  "name": "l2s",
+  "scripts": {
+    "build-and-serve": "webpack --config webpack.config.js --mode=development --env.NODE_ENV=development && webpack-dev-server  dist/",
+    "build-dev": "webpack --config webpack.config.js --mode=development",
+    "build-prod": "webpack --config webpack.config.js --mode=production",
+    "serve": "webpack-dev-server --config webpack.config.js --mode=development --env.NODE_ENV=development",
+    "serve-prod": "webpack-dev-server --config webpack.config.js --mode=production --env.NODE_ENV=production"
+  },
+  "version": "1.0.0"
+}

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Gaze Detector</title>
+    <style>
+        :root {
+            /*  Globally used vars */
+            --backgound-edge-color: #5b6d7a;
+            --background-middle-color: #ffffff;
+            --theme-background-image: linear-gradient(var(--backgound-edge-color), var(--background-middle-color), var(--backgound-edge-color));
+            --page-border-color: #131313
+
+        }
+
+        body {
+            /*gap: 0;*/
+            color: #e7ded0;
+            background-color: #131313;
+        }
+        .hidden {
+            display: none;
+        }
+        .app-container {
+
+            background-image: var(--theme-background-image);
+            margin: 2px;
+            font-size: 14px;
+            font-family: Arial,sans-serif;
+            display: grid;
+            gap: 5px;
+            grid-template-rows: 24px 1fr 48px;
+            height: 90vh;
+            grid-template-columns: 100%;
+            padding-left: 5px;
+            padding-right: 5px;
+            grid-template-areas:
+                "hd"
+                "pages"
+                "ft";
+        }
+        .page {
+            border: 1px solid var(--page-border-color);
+        }
+        .pages {
+            grid-area: pages;
+        }
+
+        .header {
+            grid-area: hd;
+            margin: 0;
+            /*border-bottom: 1px solid rgba(0,0,0,0.2);*/
+
+
+        }
+
+        .footer {
+            padding: 5px;
+            grid-area: ft;
+            border-top: 1px solid rgba(0,0,0,0.2);
+
+        }
+
+        button {
+            border-radius: 5px;
+
+        }
+
+        .notification {
+            font-size: 14px;
+            font-family: Helvetica;
+            color: #8592c7;
+            float: right;
+            transition: opacity 0.5s;
+        }
+        .page-switcher {
+
+            font-weight: bold;
+            border: 1px solid var(--page-border-color);
+            border-radius: 5px 5px 0 0;
+            color: #777777;
+            background-color: var(--backgound-edge-color);
+            margin: 0;
+            position: relative;
+            bottom: -11px;
+
+        }
+        .page-switcher:disabled {
+            color: #ffffff;
+            border-bottom:  1px solid var(--backgound-edge-color);
+        }
+
+        .api-avail-indicator {
+        }
+
+        .api-avail-indicator.active:after {
+            color: #03ff10;
+            content: "●";
+        }
+
+        .api-avail-indicator:after {
+            color: #5f5f5f;
+            content: "●";
+        }
+
+        .version {
+            font-size: xx-small;
+        }
+
+        .vidcap {
+            width: 640px;
+            height: 480px;
+            background-color: #1c090b;
+            position: relative;
+            margin: auto;
+            top:0;bottom:0; /* Aligns Vertically - Remove for Horizontal Only */
+            left:0;right:0; /* Aligns Horizontally - Remove for Vertical Only  */
+
+        }
+
+        .vidcap video {
+            width: 100%;
+            z-index: -1;
+            /* Mirror the local video */
+            transform: scale(-1, 1);
+        }
+
+        .overlay {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            margin: 10px;
+            padding: 5px 5px;
+            font-size: 14px;
+            font-family: Helvetica;
+            color: #980404;
+            background-color: rgba(255, 255, 255, 0.8);
+            z-index: 30001;
+        }
+
+        canvas.overlay {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            margin: 0px;
+            padding: 0px 0px;
+            background-color: rgba(0, 0, 0, 0.0);
+            z-index: 30000;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <span class="version">v0.0.4</span>
+        <button class="page-switcher" page="page-face">Gaze Detection</button>
+        <div style="float: right">
+            <span class="api-avail-indicator">Server status: </span>
+            <button id="startGameButton" disabled>Start detection</button>
+        </div>
+    </div>
+    <div class="pages">
+
+        <div class="page" id="page-face">
+            <!-- Face Detection -->
+            <div class="vidcap">
+                <div  id="vidCapOverlay" class="overlay">vidCapOverlay</div>
+
+                <video id="vidCap" autoplay></video>
+                <canvas id="overlayCanvas" class="overlay"></canvas>
+            </div>
+            <div id="plots">
+                 <scope-element  id="loss-display" width="640px" height="400px" title="Loss"></scope-element>
+            </div>
+        </div>
+     </div>
+</div>
+
+<div class="footer">
+    <div class="notification"></div>
+</div>
+
+<script src="index.js"></script>
+</div>
+</body>
+
+</html>
