@@ -231,6 +231,7 @@ export class Channel {
     Visible?  = false;
     RenderStyle: RenderStyle = RenderStyle.Line;
     DownSampleAlgorithm? : DownSampleAlgorithm = DownSampleAlgorithm.MinMax;
+    LineWidth? = 0.5;
 }
 
 export interface iSessionDataSource {
@@ -348,8 +349,6 @@ export class Scope extends EventEmitter implements iSessionDataSource {
     master: Scope | null;
 
     public ChannelInfos?: Channel[];
-
-    _lineWidth = 0.1;
 
     penGridMajor: GDIPlus.Pen;
     penGridMinor: GDIPlus.Pen;
@@ -1223,7 +1222,7 @@ export class Scope extends EventEmitter implements iSessionDataSource {
                     let t = last_rendered_t;
                     let y;
 
-                    let pen: GDIPlus.Pen  = { Color: this.ChannelInfos[chan].Color || 'black', Width: 0.5 };
+                    let pen: GDIPlus.Pen  = { Color: this.ChannelInfos[chan].Color || 'black', Width: this.ChannelInfos[chan].LineWidth || 0.5 };
 
                     // for downsampling
                     let subpixel_min_y;
@@ -1668,7 +1667,7 @@ export class Scope extends EventEmitter implements iSessionDataSource {
 
     private RenderTitle(ctx: CanvasRenderingContext2D) {
         ctx.font = this.TitleFont;
-        GDIPlus.GCH.DrawString(ctx, this.Title, this.ForeColor, this.gBounds.x + this.gBounds.width / 2, 22, { H: GDIPlus.TextHorizontalAlign.Center, V: TextVerticalAlign.Middle });
+        GDIPlus.GCH.DrawString(ctx, this.Title, this.TitleColor, this.gBounds.x + this.gBounds.width / 2, 22, { H: GDIPlus.TextHorizontalAlign.Center, V: TextVerticalAlign.Middle });
 
     }
 }

@@ -2,7 +2,6 @@ const path = require('path');
 const webpack = require('webpack');
 const FileManagerPlugin = require('filemanager-webpack-plugin');
 
-
 module.exports = env => {
     console.log(env);
     return {
@@ -46,29 +45,11 @@ module.exports = env => {
                     },
                 },
             }),
-            //         new CopyPlugin({ patterns: [
-            // {
-            //     from: 'static',
-            //     to: path.resolve(__dirname, 'dist/static'),
-            //     toType: 'dir',
-            // },
-            // {
-            //     from: 'pkg',
-            //     to: path.resolve(__dirname, 'dist/pkg'),
-            //     toType: 'dir',
-            // },
-            // {
-            //     from: 'app.py',
-            //     to: path.resolve(__dirname, 'dist'),
-            //     toType: 'dir',
-            // },
-
-            // ]}),
-
+            
             new webpack.DefinePlugin({
                 APP: {
                     TITLE: JSON.stringify("l2s"),
-                    AUTHOR: JSON.stringify("Error 404 <nice90sguy@gmail.com>"),
+                    AUTHOR: JSON.stringify("Error 404 <joshgreifer@gmail.com>"),
                 }
             })
         ],

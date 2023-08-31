@@ -1,5 +1,5 @@
-import vision from "@mediapipe/tasks-vision";
-const {FaceLandmarker, FilesetResolver, DrawingUtils} = vision;
+import vision, {BoundingBox} from "@mediapipe/tasks-vision";
+const {FaceLandmarker, FilesetResolver, FaceDetector} = vision;
 
 export interface LandmarkFeatures {
     face_oval: Number[][];
@@ -13,6 +13,8 @@ export interface LandmarkFeatures {
 export class LandMarkDetector {
     private faceLandmarker! : vision.FaceLandmarker;
 
+    private faceDetector! : vision.FaceDetector;
+
     public loaded: Promise<void>;
 
     constructor(private el: HTMLVideoElement) {
@@ -20,10 +22,15 @@ export class LandMarkDetector {
     }
 
     public async GetLandmarks(): Promise<vision.FaceLandmarkerResult> {
-            await this.loaded;
-            return this.faceLandmarker.detectForVideo(this.el, performance.now());
+        await this.loaded;
+        return this.faceLandmarker.detectForVideo(this.el, performance.now());
     }
 
+    public async GetFaceBoundingBox(): Promise<BoundingBox | undefined> {
+        await this.loaded;
+        const result = await this.faceDetector.detectForVideo(this.el, performance.now());
+        return result.detections[0].boundingBox;
+    }
     public static GetFeaturesFromLandmarks(result: vision.FaceLandmarkerResult) : LandmarkFeatures | undefined {
 
         try {
@@ -93,6 +100,14 @@ export class LandMarkDetector {
             outputFacialTransformationMatrixes: true,
             runningMode: "VIDEO",
             numFaces: 1
+        });
+
+        this.faceDetector = await FaceDetector.createFromOptions(filesetResolver, {
+            baseOptions: {
+                modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite`,
+                delegate: "GPU"
+            },
+            runningMode: "VIDEO"
         });
     }
 }

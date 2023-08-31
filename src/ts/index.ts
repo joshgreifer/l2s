@@ -70,19 +70,21 @@ let subject: Subject | undefined = undefined;
 
 })();
 
-window.setInterval(() => {
+const pollForAPIHandle =window.setInterval(() => {
 
     (async () => {
 
         const ready = await apiAvailable();
         if (ready)
             indicatorApiAvailableEl.classList.add('active');
-        else
+        else {
             indicatorApiAvailableEl.classList.remove('active');
+            if (subject) await subject.StopGazeDetection();
+        }
 
         startGameButton.disabled = !ready || (subject !== undefined && subject.GazeDetectionActive);
 
     } )();
 
-}, 3000);
+}, 1000);
 

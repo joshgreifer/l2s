@@ -15,7 +15,7 @@ export class Subject extends EventEmitter {
         return this.gazeDetector !== undefined && this.gazeDetector.Target !== undefined;
     };
 
-    private targetTimeMs = 3000;
+    private targetTimeMs = 5000;
 
     public set TargetTimeMs(t:number) { this.targetTimeMs = t;
     }
@@ -31,6 +31,7 @@ export class Subject extends EventEmitter {
     }
 
     public StartGazeDetectorCalibration(within: Screen | HTMLElement = window.screen) {
+
         const this_ = this;
 
         const left = (within === screen) ? 0 : (<HTMLElement>within).offsetLeft;
@@ -38,21 +39,27 @@ export class Subject extends EventEmitter {
         const height = (within === screen) ? screen.height : (<HTMLElement>within).offsetHeight;
         const width = (within === screen) ? screen.width : (<HTMLElement>within).offsetWidth;
 
-        const x_positions: number[] = [50, 200, 400, width / 2 - 50, width / 2 - 50, width / 2 - 50, width / 2,  width / 2 + 50, width - 400, width - 200, width - 55];
-        const y_positions: number[] = [50, 200, 400, height / 2 - 50, height / 2, height / 2 + 50, height - 400, height - 200, height - 55];
 
-        const center_x = width / 2;
-        const center_y = height / 2 - 250;
+       if (this.gazeDetector)
+            this.gazeDetector.Target = {x: 0, y: 0}
 
-        for (const offset of [-200, -100, 0, 0, 0, 100, 200]) {
-            x_positions.push(center_x + offset);
-            y_positions.push(center_y + offset);
-        }
-        const jitter = [-1,-2,-3,-4, 4, 3, 2, 1, 0 ]
-        if (this.gazeDetector) this.gazeDetector.Target = {x: x_positions.randomElement(), y: y_positions.randomElement()}
         const new_pos = () => {
-            if (this_.gazeDetector && this_.isGazeDetectionActive && this_.gazeDetector.Target) {
-                this_.gazeDetector.Target = {x: left + x_positions.randomElement() + jitter.randomElement(), y: top + y_positions.randomElement() + jitter.randomElement()}
+            if (this.gazeDetector && this_.isGazeDetectionActive && this.gazeDetector.Target) {
+                const t_width = this.gazeDetector.TargetWidth / 2 + 5;
+                const t_height = this.gazeDetector.TargetHeight  / 2 + 5;
+                const x_positions: number[] = [t_width, t_width, t_width, width / 2 - 50, width / 2 - 50, width / 2 - 50, width / 2,  width / 2 + 50, width - t_width, width - t_width, width - t_width];
+                const y_positions: number[] = [t_height, t_height, t_height, height / 2 - 50, height / 2, height / 2 + 50, height - t_height, height - t_height, height - t_height];
+
+                const center_x = width / 2;
+                const center_y = height / 2 - 250;
+
+                for (const offset of [-200, -100, 0, 0, 0, 100, 200]) {
+                    x_positions.push(center_x + offset);
+                    y_positions.push(center_y + offset);
+                }
+                const jitter = [-1,-2,-3,-4, 4, 3, 2, 1, 0 ]
+
+                this.gazeDetector.Target = {x: left + x_positions.randomElement() + jitter.randomElement(), y: top + y_positions.randomElement() + jitter.randomElement()}
                 // StopGazeRecognizerCalibration() can break the loop by setting target to undefined
                 setTimeout(new_pos, this_.targetTimeMs);
             }
@@ -70,7 +77,7 @@ export class Subject extends EventEmitter {
 
     public async ToggleGazeDetectorTraining() {
         if (this.gazeDetector)
-        await this.gazeDetector.toggleGazeDetectorTraining();
+            await this.gazeDetector.toggleGazeDetectorTraining();
     }
 
     public async StartGazeDetection() {
@@ -85,8 +92,10 @@ export class Subject extends EventEmitter {
         this.gazeDetector.on('GazeDetectionComplete', (features: iGazeDetectorResult) => {
                 // @ts-ignore
                 vidcap_overlay.innerText = `${this.gazeDetector.FrameRate.toFixed(0)} FPS`
-
-              }
+                // const jitter = [-1,-2,-3,-4, 4, 3, 2, 1, 0 ]
+                // // @ts-ignore
+                // this.gazeDetector.Target =  { x: features.gaze.x + jitter.randomElement(), y: features.gaze.y + jitter.randomElement()};
+            }
         );
 
         await this.gazeDetector.init();

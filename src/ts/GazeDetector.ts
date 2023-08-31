@@ -1,21 +1,27 @@
 import {post_landmarks, train} from "./apiService";
 import EventEmitter from "eventemitter3";
 import {ScopeElement} from "./ScopeElement";
-import {Scope, SignalFollowBehaviour, TimeAxisFormat} from "../DataPlotting/Scope";
+import {Channel, RenderStyle, Scope, SignalFollowBehaviour, TimeAxisFormat} from "../DataPlotting/Scope";
 import {DataConnection} from "../DataConnection";
 import {LandMarkDetector} from "../LandMarkDetector";
+import {BoundingBox, Detection} from "@mediapipe/tasks-vision";
 
 export type Coord = { x: number; y: number; }
 export type PixelCoord = number[]
 
 
+export interface iGazeDetectorTrainResult {
+    h_loss: number;
+    v_loss: number;
+    loss: number;
+}
 export interface iGazeDetectorResult {
     data_index: number;
     faces: number;
     eyes: number;
     gaze: Coord;
     landmarks: PixelCoord[];
-    loss: number;
+    losses: iGazeDetectorTrainResult;
 }
 
 export type eyeState_t = 'open' | 'closed' | undefined
@@ -30,7 +36,7 @@ export function faceVisible(features: iGazeDetectorResult): boolean {
 
 export class GazeElement extends HTMLElement {
     public setBackground: (css: string) => void;
-    public setRadius: (r: number) => void;
+    public setRadius: (rx: number, ry: number) => void;
     public setCaption: (text: string) => void;
 
     constructor() {
@@ -47,21 +53,22 @@ export class GazeElement extends HTMLElement {
         .private-style1 {
             display: flex;
             align-items: center;
+            justify-content: center;
             z-index: 10000;
             height: ${my_radius * 2}px;
             width: ${my_radius * 2}px;
-            border-radius: ${my_radius * 2}px;
-            background-image: radial-gradient(#ffc42f, #570707);
+            border-radius: 100%;
+            background-image: radial-gradient(#ff0000, rgba(87,7,7,0));
             font-family: sans-serif;
             font-size: x-small;
-            
         }
 `;
         this.setBackground = (css: string) => el.style.background = css;
-        this.setRadius = (r: number) => {
-            el.style.width = 2 * r + 'px';
-            el.style.height = 2 * r + 'px';
-            el.style.borderRadius = 2 * r + 'px';
+        this.setRadius = (rx: number, ry: number) => {
+            rx = Math.round(rx);
+            ry = Math.round(ry);
+            el.style.width = 2 * rx + 'px';
+            el.style.height = 2 * ry + 'px';
         }
         this.setCaption = (text: string) => el.innerHTML = text;
         shadow.append(style, el);
@@ -77,9 +84,9 @@ export class ContinuousTrainer extends DataConnection {
     async Start() {
         while (!this.stop_request) {
             let t = window.performance.now();
-            const loss = await train(1);
-            console.debug("LOSS:", loss);
-            this.AddData(new Float32Array([loss]));
+            const losses = await train(1);
+            console.debug("LOSS:", losses);
+            this.AddData(new Float32Array([losses.loss, losses.v_loss, losses.h_loss]));
             const t2 = window.performance.now();
             const ms_per_epoch = t2 - t;
 
@@ -88,7 +95,7 @@ export class ContinuousTrainer extends DataConnection {
     }
     constructor(interval_period_secs = 10) {
 
-        super(1, 1, Float32Array, 1000);
+        super(1, 3, Float32Array, 1000);
         this.on('data', (data) => console.log(data))
 
     }
@@ -159,21 +166,32 @@ export class GazeDetector extends EventEmitter {
     private next_target: Coord | undefined = undefined;
     private targetElement: GazeElement;
 
+    public get TargetWidth(): number {
+        return this.targetElement.clientWidth;
+    }
+
+    public get TargetHeight(): number {
+        return this.targetElement.clientHeight;
+    }
     // target won't be set until 'transitionend' event is fired,
     // i.e. when the target element has reached its new position
     public set Target(next_target: Coord | undefined) {
         console.log("Target:", next_target, GazeDetector.fromScreenCoords(next_target))
         this.next_target = next_target;
 
+        const targetElement = this.targetElement;
         if (next_target === undefined) {
             this.target = undefined;  // Don't wait for transition to end if we're stopping calibration
             // this.Mode = 'features';
-            this.targetElement.style.left = '-10000px';
-            this.targetElement.style.top =  '-10000px';
+            targetElement.style.left = '-10000px';
+            targetElement.style.top =  '-10000px';
         } else {
 
-            this.targetElement.style.left = next_target.x + 'px';
-            this.targetElement.style.top = next_target.y + 'px';
+            const width = targetElement.clientWidth;
+            const height = targetElement.clientHeight;
+
+            targetElement.style.left = Math.round(next_target.x - width / 2) + 'px';
+            targetElement.style.top = Math.round(next_target.y - height / 2) + 'px';
 
         }
 
@@ -272,11 +290,22 @@ export class GazeDetector extends EventEmitter {
         const num_frames_for_frame_rate_measurement = 10;
         let time_at_last_frame_rate_measurement = window.performance.now();
 
+        const copyFaceToTarget = async (bbox?: BoundingBox) => {
+            if (bbox) {
+                const img = imageCtx.getImageData(bbox.originX, bbox.originY, bbox.width, bbox.height);
+            }
+
+        };
+
         const processFrame = async () => {
             if (this_.isPlaying) {
 
                 let features: iGazeDetectorResult | undefined = undefined;
                 if (this.landmarkDetector) {
+
+                    // const faceBoundingBox = await this.landmarkDetector.GetFaceBoundingBox();
+                    // await copyFaceToTarget(faceBoundingBox);
+
                     const landmarkerResult = await this.landmarkDetector.GetLandmarks();
                     const landmarkFeatures = LandMarkDetector.GetFeaturesFromLandmarks(landmarkerResult);
                     if (landmarkFeatures) {
@@ -292,7 +321,7 @@ export class GazeDetector extends EventEmitter {
                 }
                 if (features !== undefined) {
 
-                    this_.training_loss = features.loss;
+                    this_.training_loss = features.losses.loss;
                     features.gaze = GazeDetector.toScreenCoords(features.gaze)
                     this_.emit('GazeDetectionComplete', features);
 
@@ -348,7 +377,36 @@ export class GazeDetector extends EventEmitter {
         scope.SampleUnitMultiplier = 1/10000;
         scope.TimeAxisFormat = TimeAxisFormat.Seconds;
 
+        scope.ChannelInfos = [
+            {
+                Color: '#003aa9',
+                Name: 'Loss',
+                Visible: true,
+                RenderStyle: RenderStyle.Step,
+                LineWidth: 10
+            },
+            {
+                Color: '#446666',
+                Name: 'X Loss',
+                Visible: true,
+                RenderStyle: RenderStyle.Step,
+                LineWidth: 10
+            },
+            {
+                Color: '#882c2c',
+                Name: 'Y Loss',
+                Visible: true,
+                RenderStyle: RenderStyle.Step,
+                LineWidth: 10
+            }
+
+        ]
+        scope.BackColor = '#cedada';
+        scope.ForeColor = '#2c2c2c'
+        scope.TitleColor = '#2c2c2c'
+
         this.lossDisplayScope = scope;
+
 
         // scope.Connection = new PollingDataConnection(2.0, 1, () => [100 * this.training_loss])
 
@@ -371,14 +429,16 @@ export class GazeDetector extends EventEmitter {
         const gazeElement = <GazeElement>document.createElement('gaze-element');
         const targetElement = <GazeElement>document.createElement('gaze-element');
         gazeElement.style.position = 'absolute';
-        gazeElement.setBackground('radial-gradient(#97dc81, #2f5609)');
-        gazeElement.setRadius(10);
+        gazeElement.setBackground(
+            `radial-gradient(#97dc81, #2f5609)`
+        );
+        gazeElement.setRadius(10, 10);
         targetElement.style.position = 'absolute';
 
-        targetElement.setBackground(
-            "radial-gradient(#ffc42f, #570707)"
-        );
-        targetElement.setRadius(25);
+        // targetElement.setBackground(
+        //     "radial-gradient(#ffc42f, #570707)"
+        // );
+        targetElement.setRadius(25, 25);
         const this_ = this;
         targetElement.addEventListener('transitionend', () => {
             this_.target = this_.next_target
@@ -419,8 +479,15 @@ export class GazeDetector extends EventEmitter {
 
             gazeElement.style.left = current_x + 'px';
             gazeElement.style.top = current_y + 'px';
+            let rx = features.losses.h_loss * screen.width;
+            let ry = features.losses.v_loss * screen.height;
+            if (rx < 10) rx = 10;
+            if (ry < 10) ry = 10;
+            if (rx > 200) rx = 200;
+            if (ry > 200) ry = 200;
 
-            targetElement.setCaption(`<div>I: ${features.data_index}<br/>Loss: <strong>${(this.training_loss * 100).toFixed(0)}</strong></div>`)
+            targetElement.setRadius(rx , ry);
+            targetElement.setCaption(`<div>${features.data_index}</div>`)
 
         });
 

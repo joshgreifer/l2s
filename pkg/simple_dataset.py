@@ -1,6 +1,4 @@
 from typing import Tuple, List
-
-import numpy as np
 import torch.utils.data.dataset
 
 

@@ -3,9 +3,8 @@ import logging
 
 from flask import Flask, request
 
-from pkg import *
-from pkg.l2s.l2s import Landmarks2ScreenCoords
-from pkg.util.util import AttrDict
+from pkg.config import Config
+from pkg.l2s import Landmarks2ScreenCoords
 
 logging.getLogger('werkzeug').disabled = True
 
@@ -19,15 +18,6 @@ l2coord = Landmarks2ScreenCoords(app.logger)
 
 logger.info(f'Using device {l2coord.config.device}')
 
-
-# KVStore(f'user.json').put("This is a long piece of text, with\nline breaks.", "intro")
-
-
-# @app.errorhandler(Exception)
-# def app_error(ex):
-#     return {"exception": f"{ex}", "traceback": traceback.extract_stack().format()}, 500
-
-
 @app.route('/', methods=['GET'])
 def index():
     return app.send_static_file('index.html')
@@ -40,7 +30,12 @@ def api_index():
 
 @app.route('/api/gaze/train/<int:epochs>', methods=['POST'])
 def train(epochs):
-    return {"loss": l2coord.train_with_dataset(epochs)}
+    return l2coord.train(epochs)
+
+
+@app.route('/api/gaze/config', methods=['POST'])
+def config():
+    return {'config': Config().__dict__}
 
 
 @app.route('/api/gaze/landmarks', methods=['POST'])
@@ -57,10 +52,11 @@ def landmarks():
         target = None
 
     # Send to landmark model
-    return l2coord.process_landmarks(feats, target)
+    return l2coord.predict(feats, target)
+
 
 @app.route('/api/gaze/save', methods=['POST', 'HEAD', 'GET'])
-def save_g2s_model():
+def save_model():
     try:
         l2coord.save()
         return {'status': 'success'}

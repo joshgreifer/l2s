@@ -4,7 +4,8 @@ from typing import Dict
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch.nn import functional as F
+
+from pkg.config import Config
 
 
 class ResBlock(nn.Module):
@@ -66,7 +67,14 @@ class LandMarks2ScreenModel(torch.nn.Module):
         self.resnet = nn.Sequential()
         ch = 3
 
-        n_blocks = 4
+        config = Config()
+        if config.version == 101:
+            n_blocks = 4
+        elif config.version == 102:
+            n_blocks = config.num_resblocks
+        else:
+            n_blocks = 4
+
         for b in range(n_blocks):
             self.resnet.add_module(f'resblock_u{b}', ResBlock(ch, 2 * ch, 1))
             ch *= 2
@@ -75,14 +83,26 @@ class LandMarks2ScreenModel(torch.nn.Module):
             ch //= 2
         assert ch == 3
 
-        # Reduce to single channel, single row
+
         self.dim_reduce = nn.Sequential()
-        self.dim_reduce.add_module(f'reduce_1', nn.Conv2d(3, 3, (3, 3), (1, 1), (1, 0), padding_mode='reflect'))
-        self.dim_reduce.add_module(f'reduce_2', nn.Conv2d(3, 2, (3, 2), (1, 1), (1, 0), padding_mode='reflect'))
-        self.dim_reduce.add_module(f'reduce_3', nn.Conv2d(2, 1, (3, 1), (1, 1), (1, 0), padding_mode='reflect'))
-        self.fc = nn.Linear(32, 2)
+        if config.version < 102:
+            # Reduce to single channel, single row of 32
+            self.dim_reduce.add_module(f'reduce_1', nn.Conv2d(3, 3, (3, 3), (1, 1), (1, 0), padding_mode='reflect'))
+            self.dim_reduce.add_module(f'reduce_2', nn.Conv2d(3, 2, (3, 2), (1, 1), (1, 0), padding_mode='reflect'))
+            self.dim_reduce.add_module(f'reduce_3', nn.Conv2d(2, 1, (3, 1), (1, 1), (1, 0), padding_mode='reflect'))
+            self.fc = nn.Linear(32, 2)
+        else:
+            # Reduce to single channel, single row of 32
+            self.dim_reduce.add_module(f'reduce_1', nn.Conv2d(3, 3, (3, 3), (1, 1), (1, 0), padding_mode='reflect'))
+            self.dim_reduce.add_module(f'reduce_2', nn.Conv2d(3, 2, (3, 2), (1, 1), (1, 0), padding_mode='reflect'))
+            self.dim_reduce.add_module(f'reduce_3', nn.Conv2d(2, 1, (3, 1), (1, 1), (1, 0), padding_mode='reflect'))
+            self.fc = nn.Linear(32, 2)
+
+
 
         self.last_act = torch.nn.Tanh()
+
+        self.config = config
 
         if filename is not None:
             self.load(filename)
@@ -143,15 +163,15 @@ class LandMarks2ScreenModel(torch.nn.Module):
         return rows
 
     def forward(self, x):
-        # print(x.shape)
         x = self.resnet(x)
-        # print(x.shape)
         x = self.dim_reduce(x)
-        # print(x.shape)
 
-        x = self.fc(torch.transpose(x, -1, -2))
-        # print(x.shape)
-        x = self.last_act(x)
+        if self.config.version == 107:
+            x = self.last_act(x)
+            x = self.fc(torch.transpose(x, -1, -2))
+        else:
+            x = self.fc(torch.transpose(x, -1, -2))
+            x = self.last_act(x)
 
         return torch.squeeze(x)
 
@@ -160,11 +180,11 @@ class LandMarks2ScreenModel(torch.nn.Module):
 
     def load(self, filename):
         try:
-            self.load_state_dict(torch.load(filename))
+            self.load_state_dict(torch.load(filename, map_location=self.config.device))
         except FileNotFoundError:
             self.logger.warning(f'{filename} not found, using random weights.')
         except RuntimeError as err:
-            self.logger.warning(f'{filename} model is incompatible with this version, using random weights.')
+            self.logger.warning(f'{filename} model is incompatible with this version, using random weights. {err}')
 
 
 if __name__ == '__main__':

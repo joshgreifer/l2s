@@ -1,4 +1,4 @@
-import {iGazeDetectorResult} from "./GazeDetector";
+import {iGazeDetectorResult, iGazeDetectorTrainResult} from "./GazeDetector";
 import {LandmarkFeatures} from "../LandMarkDetector";
 
 export class HttpError extends Error {
@@ -45,10 +45,8 @@ export async function save_gaze_calibration() : Promise<boolean> {
 
 }
 
-interface iGazeDetectorTrainResult {
-    loss: number;
-}
-export async function train(epochs: number) : Promise<number> {
+
+export async function train(epochs: number) : Promise<iGazeDetectorTrainResult> {
 
 
     const api_response = await fetch(`/api/gaze/train/${epochs}`, {
@@ -62,7 +60,7 @@ export async function train(epochs: number) : Promise<number> {
     });
     const loss_json: iGazeDetectorTrainResult = await api_response.json();
     console.log("loss_json:", loss_json)
-    return loss_json.loss;
+    return loss_json;
 
 }
 
