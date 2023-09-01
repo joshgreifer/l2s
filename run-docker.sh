@@ -14,8 +14,6 @@ fi
 # user-sensitive information (face landmark dataset built from webcam and model checkpoint)
 docker run --rm -d -it --name "$container_name" -p 5020:5000 \
 --mount type=bind,source=$project_root/cache,target=/cache \
---mount type=bind,source=$project_root/dist/static,target=/static \
---mount type=bind,source=$project_root/dist/pkg,target=/pkg \
 l2s:app
 
 docker attach "$container_name"

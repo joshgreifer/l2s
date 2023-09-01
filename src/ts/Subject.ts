@@ -85,7 +85,8 @@ export class Subject extends EventEmitter {
             return;
         this.isGazeDetectionActive = true;
         if (!this.gazeDetector)
-            this.gazeDetector = new GazeDetector(<HTMLVideoElement>document.getElementById("vidCap"), true);
+            this.gazeDetector = new GazeDetector(<HTMLVideoElement>document.querySelector("#vidCap"),
+                <HTMLDivElement>document.querySelector(".landmark_checkboxes"));
 
         const vidcap_overlay = <HTMLDivElement>document.getElementById('vidCapOverlay');
 

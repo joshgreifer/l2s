@@ -10,19 +10,31 @@ class TabNavigator_class {
             else
                 page.classList.add('hidden');
         }
-        const page_buttons = document.querySelectorAll('.page-switcher');
+        const page_buttons = document.querySelectorAll('.page-tab');
         for (const page_button of page_buttons)
             (<HTMLButtonElement>page_button).disabled = (page_button.getAttribute('page') === page_id);
 
     }
 
     constructor() {
+        const tabContainer = document.querySelector('.page-tabs')
+        if (tabContainer === null)
+            window.alert("Can't construct tab navigator, couldn't find a tab container element in document (with the class'page-tabs'.")
+        else {
 
-        document.querySelectorAll('.page-switcher').forEach((button) => {
-            (<HTMLButtonElement>button).addEventListener('click', () => {
-                this.switchToPage(button.getAttribute('page') || '')
-            })
-        });
+            const pages = document.querySelectorAll('.page');
+            for (const page of pages) {
+                const tab_el = document.createElement('button');
+                tab_el.className = 'page-tab';
+                tab_el.setAttribute('page', page.id);
+                tab_el.innerText = page.getAttribute('title') || page.id;
+                tab_el.addEventListener('click', () => {
+                    this.switchToPage(page.id) });
+                tabContainer.appendChild(tab_el);
+            }
+
+        }
+
     }
 }
 

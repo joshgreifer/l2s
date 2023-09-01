@@ -18,12 +18,12 @@ customElements.define('scope-element', ScopeElement);
 // status fields and start button in UI
 
 let statusDiv: HTMLDivElement;
-let startGameButton!: HTMLButtonElement;
+let startGazeDetectionButton!: HTMLButtonElement;
 let indicatorApiAvailableEl: HTMLDivElement;
 
 
 function setUpDomElementVars() {
-    startGameButton = <HTMLButtonElement>document.querySelector("#startGameButton");
+    startGazeDetectionButton = <HTMLButtonElement>document.querySelector("#startGazeDetectionButton");
 
     statusDiv = <HTMLDivElement>document.querySelector("#statusDiv");
 
@@ -50,9 +50,9 @@ let subject: Subject | undefined = undefined;
     setUpDomElementVars();
 
 
-    startGameButton.addEventListener("click", async function () {
+    startGazeDetectionButton.addEventListener("click", async function () {
 
-        startGameButton.disabled = true;
+        startGazeDetectionButton.disabled = true;
 
         try {
             await enterFullscreenVideo(document.documentElement);
@@ -64,7 +64,7 @@ let subject: Subject | undefined = undefined;
             window.alert(e.toString());
         }
 
-        startGameButton.disabled = false;
+        startGazeDetectionButton.disabled = false;
 
     });
 
@@ -82,7 +82,7 @@ const pollForAPIHandle =window.setInterval(() => {
             if (subject) await subject.StopGazeDetection();
         }
 
-        startGameButton.disabled = !ready || (subject !== undefined && subject.GazeDetectionActive);
+        startGazeDetectionButton.disabled = !ready || (subject !== undefined && subject.GazeDetectionActive);
 
     } )();
 

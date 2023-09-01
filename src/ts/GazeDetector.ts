@@ -4,7 +4,7 @@ import {ScopeElement} from "./ScopeElement";
 import {Channel, RenderStyle, Scope, SignalFollowBehaviour, TimeAxisFormat} from "../DataPlotting/Scope";
 import {DataConnection} from "../DataConnection";
 import {LandMarkDetector} from "../LandMarkDetector";
-import {BoundingBox, Detection} from "@mediapipe/tasks-vision";
+import {BoundingBox, Detection, FaceLandmarker} from "@mediapipe/tasks-vision";
 
 export type Coord = { x: number; y: number; }
 export type PixelCoord = number[]
@@ -103,10 +103,11 @@ export class ContinuousTrainer extends DataConnection {
 
 const constraints = {
     audio: false,
-    video: {
-        width: {min: 640, ideal: 640, max: 640},
-        height: {min: 480, ideal: 480, max: 480}
-    }
+    video:
+        {
+            width: {min: 640, ideal: 720, max: 1280},
+            height: {min: 480, ideal: 540, max: 1280}
+        }
 };
 
 // https://github.com/webrtcHacks/tfObjWebrtc/blob/master/static/objDetect.js
@@ -120,6 +121,7 @@ export class GazeDetector extends EventEmitter {
     lossDisplayScope: Scope;
     continuousTrainer: ContinuousTrainer | undefined = undefined;
     training_promise: Promise<void> | undefined = undefined;
+    private containerDiv: HTMLDivElement;
     static toScreenCoords(point: Coord | PixelCoord): Coord {
         let x, y;
 
@@ -208,8 +210,6 @@ export class GazeDetector extends EventEmitter {
 
     videoCaptureElement: HTMLVideoElement;
 
-    static readonly uploadWidth: number = 640;
-
     public async term() {
         this.removeAllListeners();
         this.isPlaying = false;
@@ -230,6 +230,11 @@ export class GazeDetector extends EventEmitter {
                     v.onloadedmetadata = () => {
                         console.log("video metadata ready");
                         this_.gotMetaData = true;
+                        const v = this.videoCaptureElement;
+                        v.width = v.videoWidth;
+                        v.height = v.videoHeight;
+                        this_.containerDiv.style.width = v.videoWidth + "px";
+                        this_.containerDiv.style.height =v.videoHeight + "px";
                         if (this_.isPlaying)
                             this_.startGazeDetection();
                     };
@@ -270,11 +275,12 @@ export class GazeDetector extends EventEmitter {
     async startGazeDetection() {
         const this_ = this;
         const v = this.videoCaptureElement;
+        v.width = v.videoWidth;
+        v.height = v.videoHeight;
 
 
         const imageCanvas = this.imageCanvas;
         const overlayCanvas = this.overlayCanvas;
-        const uploadWidth = GazeDetector.uploadWidth;
         const imageCtx = this.imageCtx;
         const overlayCtx = this.overlayCtx;
 
@@ -301,24 +307,42 @@ export class GazeDetector extends EventEmitter {
             if (this_.isPlaying) {
 
                 let features: iGazeDetectorResult | undefined = undefined;
-                if (this.landmarkDetector) {
 
-                    // const faceBoundingBox = await this.landmarkDetector.GetFaceBoundingBox();
-                    // await copyFaceToTarget(faceBoundingBox);
+                // const faceBoundingBox = await this.landmarkDetector.GetFaceBoundingBox();
+                // await copyFaceToTarget(faceBoundingBox);
 
-                    const landmarkerResult = await this.landmarkDetector.GetLandmarks();
-                    const landmarkFeatures = LandMarkDetector.GetFeaturesFromLandmarks(landmarkerResult);
-                    if (landmarkFeatures) {
-                        features = await post_landmarks(landmarkFeatures, GazeDetector.fromScreenCoords(this_.target));
-                        if (features) {
-                            for (let i = 0; i < features.landmarks.length; ++i) {
-                                features.landmarks[i][0] *= overlayCanvas.width;
-                                features.landmarks[i][1] *= overlayCanvas.height;
-                            }
+                // imageCtx.drawImage(v, 0, 0, v.videoWidth, v.videoHeight, 0, 0, overlayCanvas.width, overlayCanvas.width * (v.videoHeight / v.videoWidth));
+
+                const landmarkerResult = await this.landmarkDetector.GetLandmarks();
+
+                this_.emit('LandMarkDetectionComplete', landmarkerResult.faceLandmarks[0]);
+                const landmarkFeatures = LandMarkDetector.GetFeaturesFromLandmarks(landmarkerResult);
+                if (landmarkFeatures) {
+
+                    // Overlay the landmarks
+
+                    overlayCtx.clearRect(0, 0, 10000, 10000)
+                    overlayCtx.fillStyle = '#ff0000';
+                    for (const [idx, point] of landmarkerResult.faceLandmarks[0].entries()) {
+                        if (this.displayLandmarkArray[idx]) {
+                            overlayCtx.setTransform({a: -1, e: overlayCanvas.width})
+                            overlayCtx.beginPath();
+                            overlayCtx.arc(point.x * overlayCanvas.width, point.y * overlayCanvas.height, 3, 0, 2 * Math.PI);
+                            overlayCtx.fill();
                         }
                     }
 
+
+                    features = await post_landmarks(landmarkFeatures, GazeDetector.fromScreenCoords(this_.target));
+                    // if (features) {
+                    //     for (let i = 0; i < features.landmarks.length; ++i) {
+                    //         features.landmarks[i][0] *= overlayCanvas.width;
+                    //         features.landmarks[i][1] *= overlayCanvas.height;
+                    //     }
+                    // }
                 }
+
+
                 if (features !== undefined) {
 
                     this_.training_loss = features.losses.loss;
@@ -326,19 +350,9 @@ export class GazeDetector extends EventEmitter {
                     this_.emit('GazeDetectionComplete', features);
 
 
-                    imageCtx.drawImage(v, 0, 0, v.videoWidth, v.videoHeight, 0, 0, uploadWidth, uploadWidth * (v.videoHeight / v.videoWidth));
 
                     // overlayCtx.drawImage(v, 0, 0, v.videoWidth, v.videoHeight, 0, 0, uploadWidth, uploadWidth * (v.videoHeight / v.videoWidth));
-                    // Overlay the landmarks
 
-                    overlayCtx.clearRect(0, 0, 10000, 10000)
-                    overlayCtx.fillStyle = '#7bff00';
-                    for (const point of features.landmarks) {
-                        overlayCtx.setTransform({a: -1, e: overlayCanvas.width})
-                        overlayCtx.beginPath();
-                        overlayCtx.arc(point[0], point[1], 2, 0, 2 * Math.PI);
-                        overlayCtx.fill();
-                    }
                     if (++frame_count >= num_frames_for_frame_rate_measurement) {
                         frame_count = 0;
                         const now = window.performance.now();
@@ -354,17 +368,20 @@ export class GazeDetector extends EventEmitter {
 
     }
 
-    private landmarkDetector: LandMarkDetector | undefined = undefined;
-    constructor(videoCaptureElement: HTMLVideoElement, useMediaPipe: boolean) {
+    private landmarkDetector: LandMarkDetector;
+
+    private displayLandmarkArray: boolean[] = [];
+    constructor(videoCaptureElement: HTMLVideoElement, landmarkDisplaySelectorElement: HTMLDivElement | undefined) {
         super();
 
-        if (useMediaPipe) {
-            this.landmarkDetector = new LandMarkDetector(videoCaptureElement);
-        }
+
+        this.landmarkDetector = new LandMarkDetector(videoCaptureElement);
+
         const plotsDiv: HTMLDivElement = document.querySelector('#plots') as HTMLDivElement;
 
 
         this.videoCaptureElement = videoCaptureElement;
+
 
         const lossDisplayElement = <ScopeElement>document.querySelector('#loss-display');
         const scope: Scope = lossDisplayElement.Scope;
@@ -443,7 +460,7 @@ export class GazeDetector extends EventEmitter {
         targetElement.addEventListener('transitionend', () => {
             this_.target = this_.next_target
         });
-
+        this.containerDiv = <HTMLDivElement>document.querySelector('.vidcap')
         this.imageCanvas = document.createElement('canvas');
         this.imageCtx = this.imageCanvas.getContext("2d") as CanvasRenderingContext2D;
         this.overlayCanvas = <HTMLCanvasElement>document.querySelector('#overlayCanvas')
@@ -491,6 +508,27 @@ export class GazeDetector extends EventEmitter {
 
         });
 
+        // Landmark selector
+        if (landmarkDisplaySelectorElement) {
+            const displayLandmarkArray = this.displayLandmarkArray;
+            for (let i = 0; i < 478; ++i) {
+                const checkBoxEl = document.createElement('input');
+                checkBoxEl.type = 'checkbox';
+                checkBoxEl.title = '' + i;
+                displayLandmarkArray.push(false);
+                checkBoxEl.addEventListener('click', (evt)=> {
+                    const el = <HTMLInputElement>evt.target;
+                    displayLandmarkArray[Number.parseInt(el.title)] = el.checked;
+                })
+                landmarkDisplaySelectorElement.appendChild(checkBoxEl);
+            }
+
+            for (const c of FaceLandmarker.FACE_LANDMARKS_FACE_OVAL) {
+                const checkBoxEl = <HTMLInputElement>landmarkDisplaySelectorElement.children[c.start];
+                checkBoxEl.checked = true;
+                displayLandmarkArray[c.start] = true;
+            }
+        }
     }
 }
 
