@@ -8,8 +8,8 @@ class Config:
 
         self.device = 'cpu' if torch.cuda.device_count() == 0 else 'cuda'
 
-        self.db_version = 103
-        self.version = 107
+        self.db_version = 104  # Includes nose
+        self.version = 108
 
         # Model hyperparameters
 
@@ -37,9 +37,9 @@ class Config:
         self.batch_size = 32
 
         # Scheduler initial learning rate
-        self.lr = 1e-2
-        self.step_size = 5
-        self.gamma = .5
+        self.lr = 1e-3
+        self.step_size = 50
+        self.gamma = .1
 
         # Optimizer (SGD)
         self.momentum = 0.5

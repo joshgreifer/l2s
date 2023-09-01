@@ -52,6 +52,9 @@ def landmarks():
         target = None
 
     # Send to landmark model
+    # print("---------------------------------------------------")
+    # print(feats)
+    # print("---------------------------------------------------")
     return l2coord.predict(feats, target)
 
 

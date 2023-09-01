@@ -7,6 +7,7 @@ export interface LandmarkFeatures {
     right_eye: number[][];
     left_iris: number[][];
     right_iris: number[][];
+    nose: number[][];
     eye_blendshapes: number[];
 }
 
@@ -74,12 +75,21 @@ export class LandMarkDetector {
                     eye_blendshapes.push(c.score);
                 }
             }
+
+            let nose: number[][] = [];
+
+            for (const c of [ 0, 1, 2, 3]) {
+                const landmark = result.faceLandmarks[0][c]
+                nose.push([landmark.x, landmark.y, landmark.z])
+            }
+
             return {
                 face_oval: face_oval,
                 left_eye: left_eye,
                 right_eye: right_eye,
                 left_iris: left_iris,
                 right_iris: right_iris,
+                nose: nose,
                 eye_blendshapes: eye_blendshapes
             }
         } catch(e) {

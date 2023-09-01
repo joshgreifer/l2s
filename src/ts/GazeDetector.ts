@@ -481,10 +481,10 @@ export class GazeDetector extends EventEmitter {
             gazeElement.style.top = current_y + 'px';
             let rx = features.losses.h_loss * screen.width;
             let ry = features.losses.v_loss * screen.height;
-            if (rx < 10) rx = 10;
-            if (ry < 10) ry = 10;
-            if (rx > 200) rx = 200;
-            if (ry > 200) ry = 200;
+            if (rx < 15) rx = 15;
+            if (ry < 15) ry = 15;
+            if (rx > 100) rx = 100;
+            if (ry > 100) ry = 100;
 
             targetElement.setRadius(rx , ry);
             targetElement.setCaption(`<div>${features.data_index}</div>`)

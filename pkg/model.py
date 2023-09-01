@@ -70,10 +70,9 @@ class LandMarks2ScreenModel(torch.nn.Module):
         config = Config()
         if config.version == 101:
             n_blocks = 4
-        elif config.version == 102:
-            n_blocks = config.num_resblocks
         else:
-            n_blocks = 4
+            n_blocks = config.num_resblocks
+
 
         for b in range(n_blocks):
             self.resnet.add_module(f'resblock_u{b}', ResBlock(ch, 2 * ch, 1))
@@ -121,6 +120,7 @@ class LandMarks2ScreenModel(torch.nn.Module):
         right_eye = torch.Tensor(feature_dict["right_eye"]).to(torch.float32)
         left_iris = torch.Tensor(feature_dict["left_iris"]).to(torch.float32)
         right_iris = torch.Tensor(feature_dict["right_iris"]).to(torch.float32)
+        nose = torch.Tensor(feature_dict["nose"]).to(torch.float32)
         eye_blendshapes = torch.Tensor(feature_dict["eye_blendshapes"]).to(torch.float32)
 
         # print("face_oval:", face_oval.shape)
@@ -128,12 +128,13 @@ class LandMarks2ScreenModel(torch.nn.Module):
         # print("right_eye:", right_eye.shape)
         # print("left_iris:", left_iris.shape)
         # print("right_iris:", right_iris.shape)
+        # print("nose:", nose.shape)
         # print("eye_blendshapes:", eye_blendshapes.shape)
 
         face_row = face_oval[2:-2, :]
         eyes_row = torch.cat((left_eye, right_eye), dim=-2)
         iris_row = torch.cat((left_iris.repeat((4, 1)), right_iris.repeat((4, 1))), dim=-2)
-
+        face_row[16-2:16+2, :] = nose
         # Blendshapes for eyes are  L R L R L R...
         # Change to L L L L ... R R R R
         eye_blendshapes = eye_blendshapes.reshape(-1, 2).transpose(0, 1).flatten()
@@ -166,7 +167,7 @@ class LandMarks2ScreenModel(torch.nn.Module):
         x = self.resnet(x)
         x = self.dim_reduce(x)
 
-        if self.config.version == 107:
+        if self.config.version >= 107:
             x = self.last_act(x)
             x = self.fc(torch.transpose(x, -1, -2))
         else:
