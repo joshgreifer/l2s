@@ -1,6 +1,13 @@
 import vision, {BoundingBox} from "@mediapipe/tasks-vision";
 const {FaceLandmarker, FilesetResolver, FaceDetector} = vision;
 
+// Copied from vision.d.ts
+
+interface Connection {
+    start: number;
+    end: number;
+}
+
 export interface LandmarkFeatures {
     face_oval: Number[][];
     left_eye: number[][];
@@ -16,21 +23,52 @@ export class LandMarkDetector {
 
     private faceDetector! : vision.FaceDetector;
 
-    public loaded: Promise<void>;
+    public Loaded: Promise<void>;
 
     constructor(private el: HTMLVideoElement) {
-        this.loaded = this._load();
+        this.Loaded = this.load();
     }
 
     public async GetLandmarks(): Promise<vision.FaceLandmarkerResult> {
-        await this.loaded;
+        await this.Loaded;
         return this.faceLandmarker.detectForVideo(this.el, performance.now());
     }
 
     public async GetFaceBoundingBox(): Promise<BoundingBox | undefined> {
-        await this.loaded;
+        await this.Loaded;
         const result = await this.faceDetector.detectForVideo(this.el, performance.now());
         return result.detections[0].boundingBox;
+    }
+
+
+    public static PackLandmarksIntoFeatureRect(result: vision.FaceLandmarkerResult)  {
+
+        // Get subset of landmarks
+        let indices = [];
+        indices.push(...FaceLandmarker.FACE_LANDMARKS_FACE_OVAL.map((c) => c.start))
+        indices.push(...FaceLandmarker.FACE_LANDMARKS_LEFT_EYE.map((c) => c.start))
+        indices.push(...FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE.map((c) => c.start))
+        // Nose-line and iris centers
+        indices.push(...[0, 1, 2, 3, 473, 468])
+
+        const landmarks = []
+        for (let index of indices)
+            landmarks.push (result.faceLandmarks[0][index])
+
+        result.facialTransformationMatrixes
+        let rows = new Array<number>(landmarks.length)
+
+        landmarks.sort((a, b) => a.x - b.x)
+        let min_x_diff = Number.MAX_VALUE;
+        for (let i = 0; i < landmarks.length - 1; ++i)
+            min_x_diff = Math.min(min_x_diff, landmarks[i + 1].x - landmarks[i].x)
+         landmarks.sort((a, b) => a.y - b.y)
+        let min_y_diff = Number.MAX_VALUE;
+        for (let i = 0; i < landmarks.length - 1; ++i)
+            min_x_diff = Math.min(min_x_diff, landmarks[i + 1].y - landmarks[i].y)
+
+
+
     }
     public static GetFeaturesFromLandmarks(result: vision.FaceLandmarkerResult) : LandmarkFeatures | undefined {
 
@@ -97,10 +135,11 @@ export class LandMarkDetector {
         }
 
     }
-    public async _load()  {
+    private async load()  {
         const filesetResolver = await FilesetResolver.forVisionTasks(
             "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
         );
+        // Create a face landmarker
         this.faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
             baseOptions: {
                 modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
@@ -111,7 +150,7 @@ export class LandMarkDetector {
             runningMode: "VIDEO",
             numFaces: 1
         });
-
+        // Create a face detector too, currently unused
         this.faceDetector = await FaceDetector.createFromOptions(filesetResolver, {
             baseOptions: {
                 modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite`,

@@ -20,7 +20,7 @@ export interface BufferDataStringified {
 
     base64: string;
 }
-class _BufferUtils {
+export class Utils {
 
     public encode: (bufferData: BufferData) => BufferDataStringified;
     public decode: (stringified: BufferDataStringified) => BufferData;
@@ -113,4 +113,3 @@ class _BufferUtils {
 
 }
 
-export const BufferUtils = new _BufferUtils();

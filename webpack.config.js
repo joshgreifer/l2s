@@ -5,7 +5,11 @@ const FileManagerPlugin = require('filemanager-webpack-plugin');
 module.exports = env => {
     console.log(env);
     return {
-        entry: './src/ts/index.ts',
+        entry: [
+            './src/util/index.ts',
+            './src//GazeElement.ts',
+            './src/index.ts'
+        ],
         module: {
             rules: [
                 {

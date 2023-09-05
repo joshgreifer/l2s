@@ -8,8 +8,8 @@ class Config:
 
         self.device = 'cpu' if torch.cuda.device_count() == 0 else 'cuda'
 
-        self.db_version = 104  # Includes nose
-        self.version = 108
+        self.db_version = 200
+        self.version = 200
 
         # Model hyperparameters
 
@@ -46,4 +46,4 @@ class Config:
         self.nesterov = True
 
         # Optimizer (Adam)
-        self.betas = [0.9, 0.999]
+        self.betas = [0.9, 0.9]

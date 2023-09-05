@@ -1,20 +1,14 @@
-import {AddAlgorithms} from "./util/ArrayPlus";
+
 // For diagnostics, export Luis response
 
 import {Subject} from "./Subject";
 import {Session} from "./Session";
 
-import {GazeElement} from "./GazeDetector";
 
-import {TabNavigator} from "./nav";
+import {TabNavigator} from "./util/nav";
 import {apiAvailable} from "./apiService";
-import {enterFullscreenVideo} from "./util/util";
-import {ScopeElement} from "./ScopeElement";
+import {Fullscreen} from "./util/util";
 
-AddAlgorithms(Array.prototype);
-
-customElements.define('gaze-element', GazeElement);
-customElements.define('scope-element', ScopeElement);
 // status fields and start button in UI
 
 let statusDiv: HTMLDivElement;
@@ -42,10 +36,7 @@ let subject: Subject | undefined = undefined;
 
 (async () => {
 
-    const doc = (<any>document);
-    doc.fullscreenElement = doc.fullscreenElement || doc.mozFullscreenElement || doc.msFullscreenElement || doc.webkitFullscreenDocument;
 
-    doc.exitFullscreen = doc.exitFullscreen || doc.mozExitFullscreen || doc.msExitFullscreen || doc.webkitExitFullscreen;
 
     setUpDomElementVars();
 
@@ -55,7 +46,7 @@ let subject: Subject | undefined = undefined;
         startGazeDetectionButton.disabled = true;
 
         try {
-            await enterFullscreenVideo(document.documentElement);
+            await Fullscreen(document.documentElement);
 
             subject =  new Subject();
             await new Session(subject).Run();

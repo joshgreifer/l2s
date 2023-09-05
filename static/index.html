@@ -72,7 +72,7 @@
 
         .notification {
             font-size: 14px;
-            font-family: Helvetica;
+            font-family: Arial,sans-serif;
             color: #8592c7;
             float: right;
             transition: opacity 0.5s;
@@ -156,9 +156,23 @@
             z-index: 30000;
         }
 
-        .landmark_checkboxes {
+        .landmark_selector {
+            display: grid;
+            grid-template-columns: 300px 990px;
+            grid-template-areas: "groups checkboxes";
             margin: auto;
-            width: 1200px;
+        }
+
+        .landmark_selector .groups {
+            grid-area: groups;
+            font-size: small;
+            color: #1c090b;
+        }
+        .landmark_selector .groups label {
+            display: block;
+        }
+        .landmark_selector .checkboxes {
+            grid-area: checkboxes;
         }
     </style>
 </head>
@@ -186,7 +200,13 @@
                 <video id="vidCap" height="480" autoplay></video>
                 <canvas id="overlayCanvas" class="overlay"></canvas>
             </div>
-            <div class="landmark_checkboxes">
+            <div class="landmark_selector">
+                <div class="groups">
+
+                </div>
+                <div class="checkboxes">
+
+                </div>
             </div>
         </div>
         <div class="page" id="page-training" title="Training">

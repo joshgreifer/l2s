@@ -1,5 +1,5 @@
 import {iGazeDetectorResult, iGazeDetectorTrainResult} from "./GazeDetector";
-import {LandmarkFeatures} from "../LandMarkDetector";
+import {LandmarkFeatures} from "./LandMarkDetector";
 
 export class HttpError extends Error {
     constructor(response: Response, public code= response.status) {
@@ -63,8 +63,7 @@ export async function train(epochs: number) : Promise<iGazeDetectorTrainResult> 
     return loss_json;
 
 }
-
-export async function post_landmarks(landmarks: LandmarkFeatures, target: {  x: number, y: number } | undefined = undefined) : Promise<iGazeDetectorResult | undefined> {
+export async function post_landmarks(landmarks: any[], target: {  x: number, y: number } | undefined = undefined) : Promise<iGazeDetectorResult | undefined> {
 
     let target_post = target ? { target_x: target.x.toString() , target_y: target.y.toString()} :  { target_x: "undefined", target_y: "undefined"}
 
@@ -74,6 +73,26 @@ export async function post_landmarks(landmarks: LandmarkFeatures, target: {  x: 
     }
 
     const api_response = await fetch(`/api/gaze/landmarks`, {
+
+        method: 'post',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify(landmarks_and_target)
+    });
+    return await api_response.json();
+}
+export async function post_landmark_features(landmarks: LandmarkFeatures, target: {  x: number, y: number } | undefined = undefined) : Promise<iGazeDetectorResult | undefined> {
+
+    let target_post = target ? { target_x: target.x.toString() , target_y: target.y.toString()} :  { target_x: "undefined", target_y: "undefined"}
+
+    const landmarks_and_target = {
+        landmarks: landmarks,
+        target: target_post
+    }
+
+    const api_response = await fetch(`/api/gaze/landmark-features`, {
 
         method: 'post',
         headers: {

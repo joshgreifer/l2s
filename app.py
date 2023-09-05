@@ -38,8 +38,8 @@ def config():
     return {'config': Config().__dict__}
 
 
-@app.route('/api/gaze/landmarks', methods=['POST'])
-def landmarks():
+@app.route('/api/gaze/landmark-features', methods=['POST'])
+def landmark_features():
 
     landmarks_and_target = request.json
 
@@ -56,6 +56,26 @@ def landmarks():
     # print(feats)
     # print("---------------------------------------------------")
     return l2coord.predict(feats, target)
+
+
+@app.route('/api/gaze/landmarks', methods=['POST'])
+def landmarks_():
+
+    landmarks_and_target = request.json
+
+    landmarks = landmarks_and_target["landmarks"]
+    target = landmarks_and_target["target"]
+
+    if target["target_x"] != "undefined":
+        target = [float(target["target_x"]), float(target["target_y"])]
+    else:
+        target = None
+
+    # Send to landmark model
+    print("---------------------------------------------------")
+    print(landmarks)
+    print("---------------------------------------------------")
+    return None  # l2coord.predict(landmarks, target)
 
 
 @app.route('/api/gaze/save', methods=['POST', 'HEAD', 'GET'])

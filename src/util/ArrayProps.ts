@@ -22,7 +22,7 @@ declare global {
        * The partition function is of the form (elem: T, index?: number, array?: Array<T>) => string | number
        * and returns a key value for the item.
        * Returns an object whose properties are the partitioned keys.  The value of these properties
-       * is an array of items belonging the the partition.
+       * is an array of items belonging to the partition.
        * @example
             `const lookup: { [key: string]: string; } =
        {H: 'Hearts', D: 'Diamonds', S: 'Spades', C: 'Clubs' };
@@ -43,14 +43,14 @@ export type Partition<T> = {
 export type FilterFunc<T> = (item: T, index?: number, array?: Array<T>) => boolean
 export type PartitionFunc<T> = (item: T, index?: number, array?: Array<T>) => string | number
 
-export function AddAlgorithms(obj: Object = Array.prototype) {
+export function AddProps(obj: Object = Array.prototype) {
 
-    if (! ('length' in obj))
-        throw `Can't add algorithms to an object without 'length' property`;
+    if (!('length' in obj))
+        throw `Can't add array-props to ${typeof obj} because it has no 'length' property`;
 
     // @ts-ignore
     if (typeof obj[Symbol.iterator] === 'undefined')
-        throw `Can't add algorithms to a non-iterable object `;
+        throw `Can't add array-props to ${typeof obj}  because it's not iterable`;
 
     Object.defineProperty(obj, 'randomElement', {
         value: function () {
