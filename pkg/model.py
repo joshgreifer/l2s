@@ -17,7 +17,7 @@ class ResBlock(nn.Module):
         self.conv1 = nn.Conv2d(in_channels,
                                out_channels,
                                kernel_size=3,
-                               stride=1,
+                               stride=stride,
                                padding=1,
                                padding_mode='reflect',
                                bias=False)
@@ -71,37 +71,53 @@ class LandMarks2ScreenModel(torch.nn.Module):
         config = Config()
         if config.version == 101:
             n_blocks = 4
+        elif config.version == 300:
+            n_blocks = 3
         else:
             n_blocks = config.num_resblocks
 
+        stride = 1
 
         for b in range(n_blocks):
-            self.resnet.add_module(f'resblock_u{b}', ResBlock(ch, 2 * ch, 1))
+            self.resnet.add_module(f'resblock_u{b}', ResBlock(ch, 2 * ch, stride))
             ch *= 2
         for b in range(n_blocks):
-            self.resnet.add_module(f'resblock_d{b}', ResBlock(ch, ch // 2, 1))
+            self.resnet.add_module(f'resblock_d{b}', ResBlock(ch, ch // 2, stride))
             ch //= 2
         assert ch == 3
 
-        self.dim_reduce = nn.Sequential()
+        self.dim_reduce1 = nn.Sequential()
+        self.dim_reduce2 = nn.Sequential()
+        if config.version == 300:
+            stride = 2
+            # Reduce (1,24,3,3) to (1,1,1,1)
+            self.dim_reduce1.add_module(f'reduce1_resblock_1', ResBlock(ch, 2 * ch, stride))
+            self.dim_reduce1.add_module(f'reduce1_resblock_2', ResBlock(2 * ch, 4 * ch, stride))
+            self.dim_reduce1.add_module(f'reduce1_resblock_3', ResBlock(4 * ch, 8 * ch, stride))
+            self.dim_reduce1.add_module(f'reduce1_conv', nn.Conv2d(24, 1, (3, 3)))
 
-        if config.version == 200:
+            self.dim_reduce2.add_module(f'reduce2_resblock_1', ResBlock(ch, 2 * ch, stride))
+            self.dim_reduce2.add_module(f'reduce2_resblock_2', ResBlock(2 * ch, 4 * ch, stride))
+            self.dim_reduce2.add_module(f'reduce2_resblock_3', ResBlock(4 * ch, 8 * ch, stride))
+            self.dim_reduce2.add_module(f'reduce2_conv', nn.Conv2d(24, 1, (3, 3)))
+
+
+
+        elif config.version == 200:
             # Reduce to single channel, single row of 15
-            self.dim_reduce.add_module(f'reduce_1', nn.Conv2d(3, 3, (3, 3), (1, 1), (1, 0), padding_mode='reflect'))
-            self.dim_reduce.add_module(f'reduce_2', nn.Conv2d(3, 2, (3, 3), (1, 1), (1, 0), padding_mode='reflect'))
-            self.dim_reduce.add_module(f'reduce_3', nn.Conv2d(2, 1, (3, 1), (1, 1), (1, 0), padding_mode='reflect'))
+            self.dim_reduce1.add_module(f'reduce_1', nn.Conv2d(3, 1, (3, 5), (1, 1), (1, 0), padding_mode='reflect'))
             self.fc = nn.Linear(15, 2)
         elif config.version < 102:
             # Reduce to single channel, single row of 32
-            self.dim_reduce.add_module(f'reduce_1', nn.Conv2d(3, 3, (3, 3), (1, 1), (1, 0), padding_mode='reflect'))
-            self.dim_reduce.add_module(f'reduce_2', nn.Conv2d(3, 2, (3, 2), (1, 1), (1, 0), padding_mode='reflect'))
-            self.dim_reduce.add_module(f'reduce_3', nn.Conv2d(2, 1, (3, 1), (1, 1), (1, 0), padding_mode='reflect'))
+            self.dim_reduce1.add_module(f'reduce_1', nn.Conv2d(3, 3, (3, 3), (1, 1), (1, 0), padding_mode='reflect'))
+            self.dim_reduce1.add_module(f'reduce_2', nn.Conv2d(3, 2, (3, 2), (1, 1), (1, 0), padding_mode='reflect'))
+            self.dim_reduce1.add_module(f'reduce_3', nn.Conv2d(2, 1, (3, 1), (1, 1), (1, 0), padding_mode='reflect'))
             self.fc = nn.Linear(32, 2)
         else:
             # Reduce to single channel, single row of 32
-            self.dim_reduce.add_module(f'reduce_1', nn.Conv2d(3, 3, (3, 3), (1, 1), (1, 0), padding_mode='reflect'))
-            self.dim_reduce.add_module(f'reduce_2', nn.Conv2d(3, 2, (3, 2), (1, 1), (1, 0), padding_mode='reflect'))
-            self.dim_reduce.add_module(f'reduce_3', nn.Conv2d(2, 1, (3, 1), (1, 1), (1, 0), padding_mode='reflect'))
+            self.dim_reduce1.add_module(f'reduce_1', nn.Conv2d(3, 3, (3, 3), (1, 1), (1, 0), padding_mode='reflect'))
+            self.dim_reduce1.add_module(f'reduce_2', nn.Conv2d(3, 2, (3, 2), (1, 1), (1, 0), padding_mode='reflect'))
+            self.dim_reduce1.add_module(f'reduce_3', nn.Conv2d(2, 1, (3, 1), (1, 1), (1, 0), padding_mode='reflect'))
             self.fc = nn.Linear(32, 2)
 
         self.last_act = torch.nn.Tanh()
@@ -156,8 +172,11 @@ class LandMarks2ScreenModel(torch.nn.Module):
             # print("eye_blendshapes_row:", eye_blendshapes_row.shape)
 
             rows = torch.stack((face_row, eyes_row, iris_row, eye_blendshapes_row), dim=-1)
+            # Put channel dim first
+            rows = rows.transpose(0, 1)
+            # print("After transpose:", rows.shape)
 
-        else:
+        elif self.config.version == 200:
             assert isinstance(landmarks, list)
             landmarks = torch.Tensor(landmarks).to(torch.float32)
             row1 = torch.index_select(landmarks, 0, torch.tensor([127, 162, 21, 54, 103, 67, 109, 10, 338, 297, 332, 284, 251, 389, 356]))
@@ -167,12 +186,22 @@ class LandMarks2ScreenModel(torch.nn.Module):
             row5 = torch.index_select(landmarks, 0, torch.tensor( [132, 147, 187, 207, 206, 165, 167, 164, 393, 391, 426, 427, 411, 376, 361,]))
 
             rows = torch.stack((row1, row2, row3, row4, row5), dim=-1)
-
+            # Put channel dim first
+            rows = rows.transpose(0, 1)
+            # print("After transpose:", rows.shape)
+        elif self.config.version == 300:
+            assert isinstance(landmarks, list)
+            landmarks = torch.Tensor(landmarks).to(torch.float32)
+            landmarks = torch.cat((landmarks, torch.zeros((6, 3))), dim=0)
+            rows = torch.reshape(landmarks, (22, 22, 3))
+            # Put channel dim first
+            rows = rows.transpose(0, 2)
+            # print("After transpose:", rows.shape)
         # print("Stacked shape:", rows.shape)
+        else:
+            raise ValueError(f'Unknown version {self.config.version}')
 
-        # Put channel dim first
-        rows = rows.transpose(0, 1)
-        # print("After transpose:", rows.shape)
+
 
         # Do NOT add batch dim
         # rows = torch.unsqueeze(rows, 0)
@@ -180,17 +209,28 @@ class LandMarks2ScreenModel(torch.nn.Module):
         # print("Final shape:", rows.shape)
         return rows
     def forward(self, x):
-        x = self.resnet(x)
-        for i in range(0, len(self.dim_reduce)):
-            x = self.dim_reduce[i](x)
-        # x = self.dim_reduce(x)
-
-        if self.config.version >= 107:
+        if self.config.version == 300:
+            x = self.resnet(x)
+            x1 = self.dim_reduce1(x)
+            x2 = self.dim_reduce2(x)
+            x = torch.cat((x1, x2), dim=-1)
             x = self.last_act(x)
-            x = self.fc(torch.transpose(x, -1, -2))
         else:
-            x = self.fc(torch.transpose(x, -1, -2))
-            x = self.last_act(x)
+            for i in range(0, len(self.resnet)):
+                x = self.resnet[i](x)
+            # x = self.resnet(x)
+            # For testing
+            # for i in range(0, len(self.dim_reduce1)):
+            #     x1 = self.dim_reduce1[i](x)
+            x = self.dim_reduce1(x)
+
+
+            if self.config.version >= 107:
+                x = self.last_act(x)
+                x = self.fc(torch.transpose(x, -1, -2))
+            else:
+                x = self.fc(torch.transpose(x, -1, -2))
+                x = self.last_act(x)
 
         return torch.squeeze(x)
 

@@ -72,10 +72,10 @@ def landmarks_():
         target = None
 
     # Send to landmark model
-    print("---------------------------------------------------")
-    print(landmarks)
-    print("---------------------------------------------------")
-    return None  # l2coord.predict(landmarks, target)
+    # print("---------------------------------------------------")
+    # print(landmarks)
+    # print("---------------------------------------------------")
+    return l2coord.predict(landmarks, target)
 
 
 @app.route('/api/gaze/save', methods=['POST', 'HEAD', 'GET'])
