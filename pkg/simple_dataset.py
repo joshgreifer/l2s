@@ -46,6 +46,7 @@ class SimpleDataset(torch.utils.data.Dataset):
             db = torch.load(filename)
             loaded_capacity = db["capacity"]
             loaded_db = db["_db"]
+
             loaded_size = loaded_capacity if db["full"] else db["idx"]
             if self.capacity <= loaded_capacity:
                 self._db = loaded_db

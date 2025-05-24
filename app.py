@@ -1,4 +1,4 @@
-
+import torch
 import logging
 
 from flask import Flask, request
@@ -10,14 +10,14 @@ logging.getLogger('werkzeug').disabled = True
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('app')
+
+device = 'cpu' if torch.cuda.device_count() == 0 else 'cuda'
+
+
+l2coord = Landmarks2ScreenCoords(logger)
+
+logger.info(f'Using device {device}')
 app = Flask('l2s', static_url_path='/', static_folder='static')
-
-config = Config()
-
-l2coord = Landmarks2ScreenCoords(app.logger)
-
-logger.info(f'Using device {l2coord.config.device}')
-
 @app.route('/', methods=['GET'])
 def index():
     return app.send_static_file('index.html')
