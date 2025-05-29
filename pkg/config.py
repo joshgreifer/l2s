@@ -1,13 +1,21 @@
 import json
 
+import torch
+
+
 class Config:
 
     def __init__(self):
         # load config from cache/config.json
+
         config = None
         try:
             with open('cache/config.json', 'r') as f:
                 config = json.load(f)
+                # Update the config with model-specific overrides if any
+                if f'model_{config["version"]}' in config:
+                    model_config = config[f'model_{config["version"]}']
+                    config.update(model_config)
         except FileNotFoundError:
             print("No cache/config.json found, using default config.")
 
@@ -21,12 +29,13 @@ class Config:
             self.__dict__.update(config)
         else:
             # Device to run models on
-            self.device = 'cpu'
+            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
             self.db_version = 200
             self.version = 400
 
             # Model hyperparameters
+            self.hidden_channels = 3 # for v.500
 
             # Number of resblocks.  Only used if version >= 102, earlier versions hard-code it to 4
             self.num_resblocks = 5
@@ -63,3 +72,7 @@ class Config:
         # Checkpoint to load l2s model from
         self.checkpoint = f'cache/checkpoints/l2s_v{self.version}.pth'
         self.dataset_path = f'cache/checkpoints/l2s_v{self.db_version}_db.pth'
+
+        # pca
+        self.pca_num = 32
+        self.pca_path = f'cache/checkpoints/l2s_v{self.db_version}_pca_{self.pca_num}.joblib'

@@ -1,5 +1,6 @@
 import logging
-import math
+
+
 
 import numpy as np
 import torch
@@ -8,9 +9,11 @@ from torch.optim.lr_scheduler import StepLR
 from tqdm import tqdm
 
 from pkg.config import Config
+from pkg.model_300 import GazeResNetSimple
+from pkg.model_600 import GazeGAT
 from pkg.simple_dataset import SimpleDataset
-from pkg.model import LandMarks2ScreenModel
-
+from pkg.model_400 import GazeResNet
+from pkg.model_500 import  GazeGCN
 """
 export interface LandmarkFeatures {
     face_oval: Number[][];
@@ -32,9 +35,19 @@ class Landmarks2ScreenCoords:
         self.logger = logger
         self.mode = 'eval'
         self.device = self.config.device
-        self.target = np.ndarray((2,))
+        self.target = np.ndarray((2,))  # x, y coords, -1..1, origin center of the screen
+        if self.config.version == 300:
+            model = GazeResNetSimple
+        elif self.config.version == 400:
+            model = GazeResNet
+        elif self.config.version == 500:
+            model = GazeGCN
+        elif self.config.version == 600:
+            model = GazeGAT
+        else:
+            raise ValueError(f"Unsupported model version: {self.config.version}")
 
-        self.model = LandMarks2ScreenModel(self.config, logger=logger, filename=self.config.checkpoint).to(self.device)
+        self.model = model(self.config, logger=logger, filename=self.config.checkpoint).to(self.device)
         # self.optimizer = torch.optim.SGD(self.model.parameters(),
         #                                  lr=self.config.lr,
         #                                  momentum=self.config.momentum,
@@ -72,6 +85,7 @@ class Landmarks2ScreenCoords:
                     for n_batches, (idx, x, y) in enumerate(loader):
                         x = x.to(self.device)
                         y = y.to(self.device)
+
                         pred = self.model(x)
 
                         try:
@@ -164,7 +178,7 @@ if __name__ == '__main__':
     def main():
         l2s = Landmarks2ScreenCoords(logging.getLogger())
 
-
+        print(f"Running model on device: {next(l2s.model.parameters()).device}")
         l2s.train(1000)
     try:
         main()

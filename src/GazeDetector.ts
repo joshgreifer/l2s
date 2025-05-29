@@ -357,9 +357,19 @@ export class GazeDetector extends EventEmitter {
                 const checkBoxEl = document.createElement('input');
                 checkBoxEl.type = 'checkbox';
                 checkBoxEl.title = '' + i;
-
+                // mouse pointer changes to crosshair when hovering over checkbox
+                checkBoxEl.style.cursor = 'crosshair';
                 displayLandmarkArray.push({color: '#ffffff', visible: false});
                 checkBoxEl.addEventListener('click', (evt) => {
+                    const el = <HTMLInputElement>evt.target;
+                    displayLandmarkArray[Number.parseInt(el.title)].visible = el.checked;
+                })
+                checkBoxEl.addEventListener('mouseenter', (evt) => {
+                    const el = <HTMLInputElement>evt.target;
+                    displayLandmarkArray[Number.parseInt(el.title)].visible = true;
+                })
+
+                checkBoxEl.addEventListener('mouseleave', (evt) => {
                     const el = <HTMLInputElement>evt.target;
                     displayLandmarkArray[Number.parseInt(el.title)].visible = el.checked;
                 })

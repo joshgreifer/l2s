@@ -7,6 +7,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from pkg.config import Config
+from pkg.gaze_model import GazeModel
 
 
 class ResBlock(nn.Module):
@@ -50,7 +51,7 @@ class ResBlock(nn.Module):
         return y
 
 
-class LandMarks2ScreenModel(torch.nn.Module):
+class GazeResNet(GazeModel):
     """
     This model predicts the screen location (normalized to range [-1..1]
     of a gaze.
@@ -61,11 +62,11 @@ class LandMarks2ScreenModel(torch.nn.Module):
     are then arranged into a 3-channel 22  X 22 Tensor (see pack_input()).
     """
     def __init__(self, config, *, logger=None, filename=None):
-        super().__init__()
-        self.logger = logger
+        super().__init__(config, logger, filename=filename)
+
 
         if config.version == 400:
-            n_internal = 6
+            n_internal = 3
             self.mlp = nn.Sequential(
                 # Input: [3, 22, 22]
 
@@ -101,22 +102,13 @@ class LandMarks2ScreenModel(torch.nn.Module):
         x = self.last_act(x)
         return torch.squeeze(x)
 
-    def save(self, filename):
-        torch.save(self.state_dict(), filename)
 
-    def load(self, filename):
-        try:
-            self.load_state_dict(torch.load(filename, map_location=self.config.device, weights_only=True))
-        except FileNotFoundError:
-            self.logger.warning(f'{filename} not found, using random weights.')
-        except RuntimeError as err:
-            self.logger.warning(f'{filename} model is incompatible with this version, using random weights. {err}')
 
 
 if __name__ == '__main__':
     x = torch.randn(478, 3)
     x = torch.unsqueeze(x, 0)
-    model = LandMarks2ScreenModel(Config())
+    model = GazeResNet(Config())
     model.eval()
     y = model(x)
     print(y.shape)
