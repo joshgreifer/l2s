@@ -2,9 +2,11 @@
 
 ### Run Locally ###
  1. Create python env (see install_python_env.sh)
- 2. Ensure you have latest version of npm installed
- 3. npm install
- 4. Run the server (see run.sh)
- 5. Point browser at localhost:5000
+ 1. Ensure you have latest version of npm installed:
+`sudo npm update -g npm`
+ 1. `npm install`
+ 1. Build the app (see build.bat or build.sh)
+ 1. Run the server (see run.bat or run.sh)
+ 1. Point browser at http://localhost:5000
 
-## Or Run 
+### Or Run in Docker

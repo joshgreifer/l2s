@@ -4,11 +4,11 @@ container_name=l2s_container
 
 # docker needs a full path for mounts, so set them here
 if [[ $OSTYPE == darwin* ]]; then
-  project_root=/Users/josh/l2s
+  project_root=/Users/josh/Projects/l2s
 elif [[ $OSTYPE == linux* ]]; then
   project_root=/home/josh/l2s
 else
-  project_root=/mnt/d/projects/nice90sguy/l2s
+  project_root=/mnt/d/projects/xxx/l2s
 fi
 # The only REQUIRED mount is /cache, which maintains potentially
 # user-sensitive information (face landmark dataset built from webcam and model checkpoint)

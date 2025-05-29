@@ -1,4 +1,4 @@
-FROM joshgreifer/l2s:base
+FROM l2s:base
 # Run this from root of project
 # e.g. docker build -t l2s:app -f docker\app.Dockerfile .
 

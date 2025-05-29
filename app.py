@@ -38,8 +38,8 @@ def config():
     return {'config': Config().__dict__}
 
 
-@app.route('/api/gaze/landmark-features', methods=['POST'])
-def landmark_features():
+@app.route('/api/gaze/landmarks', methods=['POST'])
+def landmarks():
 
     landmarks_and_target = request.json
 
@@ -58,7 +58,7 @@ def landmark_features():
     return l2coord.predict(feats, target)
 
 
-@app.route('/api/gaze/landmarks', methods=['POST'])
+@app.route('/api/gaze/landmarks_old', methods=['POST'])
 def landmarks_():
 
     landmarks_and_target = request.json
