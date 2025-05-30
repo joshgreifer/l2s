@@ -4,7 +4,7 @@ container_name=l2s_container
 
 # docker needs a full path for mounts, so set them here
 if [[ $OSTYPE == darwin* ]]; then
-  project_root=/Users/josh/l2s
+  project_root=/Users/josh/Projects/l2s
 elif [[ $OSTYPE == linux* ]]; then
   project_root=/home/josh/l2s
 else

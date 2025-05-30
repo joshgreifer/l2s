@@ -33,6 +33,12 @@ def train(epochs):
     return l2coord.train(epochs)
 
 
+@app.route('/api/gaze/pca', methods=['POST'])
+def pca():
+
+    return l2coord.do_pca()
+
+
 @app.route('/api/gaze/config', methods=['POST'])
 def config():
     return {'config': Config().__dict__}

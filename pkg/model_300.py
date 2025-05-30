@@ -1,11 +1,6 @@
-from __future__ import annotations
-
-from typing import Dict, List
-
 import joblib
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 from pkg.config import Config
 from pkg.gaze_model import GazeModel
@@ -28,21 +23,13 @@ class GazePCA(GazeModel):
         except Exception as e:
             raise RuntimeError(f"Error loading PCA model from {config.pca_path}: {e}")
 
-        self.pca.
-        hidden_channels = config.hidden_channels
-        self.points_of_interest_indices = config.points_of_interest_indices
-        n_points = len(self.points_of_interest_indices)
-        self.convs = nn.ModuleList([
-            nn.Conv1d(hidden_channels, hidden_channels, kernel_size=3, stride=1, padding=dilation, dilation=dilation, padding_mode="reflect", bias=False)
-            for dilation in range(2, 4)  # Dilation sizes from 1 to 5
-        ])
-        self.input_conv = nn.Conv1d(3, hidden_channels, kernel_size=1, stride=1, padding=0, bias=False)  # Initial conv layer
-        self.bn = nn.BatchNorm1d(hidden_channels)
-        self.relu = nn.ReLU(inplace=True)
-        self.last_convs =  nn.Sequential(
-            nn.Conv1d(hidden_channels, 4, kernel_size=3, stride=1, padding=0, bias=False),
-            nn.Conv1d(4, 2, kernel_size=3, stride=1, padding=0, bias=False),
-            nn.Conv1d(2, 1, kernel_size=3, stride=1, padding=0, bias=False)
+
+        self.mlp =  nn.Sequential(
+            nn.Linear(self.pca.n_components_, config.hidden_channels),
+            nn.ReLU(),
+            nn.Linear(config.hidden_channels, config.hidden_channels),
+            nn.ReLU(),
+            nn.Linear(config.hidden_channels, 2),
         )
         self.last_act = torch.nn.Tanh()
         self.config = config
@@ -52,32 +39,34 @@ class GazePCA(GazeModel):
 
     def forward(self, x):
         batch_size, num_nodes, in_channels = x.shape
+        # Flatten the input to match PCA input shape
         assert num_nodes == 478, f"Expected 478 nodes, got {num_nodes}"
         assert in_channels == 3, f"Expected 3 channels, got {in_channels}"
+        x = x.view(batch_size, -1)  # Flatten to shape [B, 478 * 3]
 
-        points_of_interest = [x[:, i, :] for i in self.points_of_interest_indices]
-        x = torch.stack(points_of_interest, dim=1)  # Shape: [B, 8, 3]
-        x = x.permute(0, 2, 1)  # Change shape to [B, 3, 8] for Conv1d
+        # Apply PCA transformation
+        x_pca = self.pca.transform(x.cpu().numpy())  # PCA works on numpy arrays
 
-        x = self.input_conv(x)  # Initial conv layer
-        # x = self.bn(x)
-        x = self.relu(x)
+        # Convert the transformed data back to a PyTorch tensor
+        x_pca = torch.tensor(x_pca, dtype=torch.float32, device=x.device)
 
-        outputs = [conv(x) for conv in self.convs]  # Apply convolutions with different dilations
-        x = sum(outputs)  # Sum all outputs element-wise
-        x = self.last_convs(x)  # Fully connected layer, shape: [B, 2]
+        # Pass through the MLP
+        x = self.mlp(x_pca)
+
+        # Apply the final activation function
         x = self.last_act(x)
+
         return torch.squeeze(x)
 
 
 
 if __name__ == '__main__':
-    x = torch.randn(478, 3)
-    x = torch.unsqueeze(x, 0)
+    landmarks = torch.randn(478, 3)
+    landmarks = torch.unsqueeze(landmarks, 0)
     model = GazePCA(Config())
     model.eval()
-    y = model(x)
-    print(y.shape)
+    pred = model(landmarks)
+    print(pred.shape)
 
 
 

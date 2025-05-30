@@ -203,6 +203,17 @@ export class GazeDetector extends EventEmitter {
         overlayCanvas.width = v.videoWidth; // uploadWidth;
         overlayCanvas.height = v.videoHeight; //uploadWidth * (v.videoHeight / v.videoWidth);
 
+        // If user clicks on the overlay canvas, we set the target position to the clicked point in absolute screen coordinates (not local to the canvas)
+        overlayCanvas.addEventListener('click', (evt) => {
+            const rect = overlayCanvas.getBoundingClientRect();
+            const x = evt.screenX;
+            const y = evt.screenY;
+            this_.TargetPos = {x: x, y: y};
+        });
+
+        // set the cursor to a crosshair when hovering over the overlay canvas
+        overlayCanvas.style.cursor = 'crosshair';
+
         let frame_count: number = 0;
         const num_frames_for_frame_rate_measurement = 10;
         let time_at_last_frame_rate_measurement = window.performance.now();

@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import StepLR
 from tqdm import tqdm
 
 from pkg.config import Config
-from pkg.model_300 import GazeResNetSimple
+from pkg.model_300 import GazePCA
 from pkg.model_600 import GazeGAT
 from pkg.simple_dataset import SimpleDataset
 from pkg.model_400 import GazeResNet
@@ -37,7 +37,7 @@ class Landmarks2ScreenCoords:
         self.device = self.config.device
         self.target = np.ndarray((2,))  # x, y coords, -1..1, origin center of the screen
         if self.config.version == 300:
-            model = GazeResNetSimple
+            model = GazePCA
         elif self.config.version == 400:
             model = GazeResNet
         elif self.config.version == 500:
@@ -53,7 +53,7 @@ class Landmarks2ScreenCoords:
         #                                  momentum=self.config.momentum,
         #                                  nesterov=self.config.nesterov)
         self.optimizer = torch.optim.Adam(self.model.parameters(),
-                                          lr=self.config.lr, betas=self.config.betas)
+                                          lr=self.config.lr, betas=self.config.betas, weight_decay=self.config.weight_decay)
 
         self.scheduler = StepLR(self.optimizer, step_size=self.config.step_size, gamma=self.config.gamma)
 
@@ -172,6 +172,21 @@ class Landmarks2ScreenCoords:
             'landmarks': [],  # landmarks_for_display,
             'losses': self.losses
         }
+
+    def do_pca(self):
+        """
+        Do PCA on the dataset and save the model.
+        :return: PCA model
+        """
+        from pkg.pca import do_pca as do_pca_
+        try:
+            pca = do_pca_()
+            logging.getLogger('app').info(f"PCA model saved with {pca.n_components_} components.")
+        except Exception as e:
+            logging.getLogger('app').error(f"Error during PCA: {e}")
+            return {'status': 'failed', 'error': str(e)}
+
+        return {'status': 'success', 'pca_num_components': pca.n_components_}
 
 
 if __name__ == '__main__':

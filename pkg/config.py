@@ -68,11 +68,14 @@ class Config:
 
             # Optimizer (Adam)
             self.betas = [0.9, 0.999]
+            self.weight_decay = 1e-4
+
+            # pca
+            self.pca_num = 32
 
         # Checkpoint to load l2s model from
         self.checkpoint = f'cache/checkpoints/l2s_v{self.version}.pth'
         self.dataset_path = f'cache/checkpoints/l2s_v{self.db_version}_db.pth'
 
-        # pca
-        self.pca_num = 32
+
         self.pca_path = f'cache/checkpoints/l2s_v{self.db_version}_pca_{self.pca_num}.joblib'

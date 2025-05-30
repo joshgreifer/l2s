@@ -1,24 +1,26 @@
 {
-  "device": "cuda:1",
+  "device": "cpu",
   "db_version": 200,
-  "version": 400,
+  "version": 300,
   "gat_heads": 4,
   "hidden_channels": 64,
   "num_resblocks": 5,
-  "dataset_capacity": 32768,
+  "dataset_capacity": 8192,
   "dataset_min_size": 512,
   "dataset_checkpoint_frequency": 1024,
-  "model_checkpoint_frequency": 10,
+  "model_checkpoint_frequency": 100,
   "batch_size": 256,
   "lr": 0.001,
   "step_size": 50,
   "gamma": 0.99,
   "momentum": 0.5,
+  "pca_num": 32,
   "nesterov": true,
   "betas": [0.9, 0.999],
+  "weight_decay": 1e-4,
   "model_300": {
-    "model_type": "ConvNet",
-    "hidden_channels": 8,
+    "model_type": "MLP",
+    "hidden_channels": 256,
     "points_of_interest_indices":  [6, 10, 152, 156, 234, 454, 468, 473]
   }
 }

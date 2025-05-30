@@ -24,7 +24,7 @@ def get_landmarks_matrix(dataset: SimpleDataset):
 
 import matplotlib.pyplot as plt
 
-def plot_pca_variation(pca, pc_idx, std_multiples=[-4, -2, 0, 2, 4], landmark_shape=(478, 3)):
+def plot_pca_variation(pca, pc_idx, std_multiples=[-8, -4, 0, 4, 8], landmark_shape=(478, 3)):
     """
     Plot how the landmarks change along a single principal component.
 
@@ -44,7 +44,7 @@ def plot_pca_variation(pca, pc_idx, std_multiples=[-4, -2, 0, 2, 4], landmark_sh
         landmarks = landmarks.reshape(landmark_shape)
 
         plt.subplot(1, len(std_multiples), i+1)
-        plt.scatter(landmarks[:, 0], -landmarks[:, 1], s=5)  # y-flip for typical image coords
+        plt.scatter(landmarks[:, 0], -landmarks[:, 1], s=3)  # y-flip for typical image coords
         plt.title(f"{std_mult:+}σ")
         plt.axis('equal')
         plt.axis('off')
@@ -53,6 +53,29 @@ def plot_pca_variation(pca, pc_idx, std_multiples=[-4, -2, 0, 2, 4], landmark_sh
     plt.show()
 
 
+def do_pca():
+    config = Config()
+    if config.pca_path is None:
+        raise ValueError("PCA path is not set in the configuration.")
+
+    # Load dataset
+    dataset = SimpleDataset(capacity=config.dataset_capacity)
+    dataset.load(config.dataset_path)
+    print(f"Loaded dataset with {len(dataset)} samples from {config.dataset_path}")
+
+    # Get landmarks matrix
+    landmarks_matrix = get_landmarks_matrix(dataset)  # [num_samples, 478, 3]
+    landmarks_flat = landmarks_matrix.reshape(landmarks_matrix.shape[0], -1)  # [num_samples, 1404]
+
+    n_components = config.pca_num
+    print(f"Performing PCA with {n_components} components on landmarks...")
+    pca = PCA(n_components=n_components)
+    _ = pca.fit_transform(landmarks_flat)  # [num_samples, n_components]
+
+    joblib.dump(pca, config.pca_path)
+    print(f"Done. PCA model saved to {config.pca_path}")
+
+    return pca
 
 if __name__ == "__main__":
 
@@ -63,7 +86,7 @@ if __name__ == "__main__":
     try:
         pca = joblib.load(config.pca_path)
         print(f"PCA model loaded from {config.pca_path}")
-        for pc in range(32):
+        for pc in range(pca.n_components_):
             plot_pca_variation(pca, pc_idx=pc)
         exit(0)
     except FileNotFoundError:
@@ -77,7 +100,7 @@ if __name__ == "__main__":
     n_components = config.pca_num
     pca = PCA(n_components=n_components)
     X_train_pca = pca.fit_transform(landmarks_flat)  # [num_samples, n_components]
-    print(f"Original shape: {landmarks_flat.shape}, PCA reduced shape: {X_train_pca.shape}")
+    # print(f"Original shape: {landmarks_flat.shape}, PCA reduced shape: {X_train_pca.shape}")
     joblib.dump(pca, config.pca_path)
     print(f"PCA model saved to {config.pca_path}")
 
