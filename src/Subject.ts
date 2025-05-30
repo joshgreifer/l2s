@@ -30,7 +30,7 @@ export class Subject extends EventEmitter {
         this.isGazeDetectionActive = false;
     }
 
-    public StartGazeDetectorCalibration() {
+    public async StartGazeDetectorCalibration() {
 
         const this_ = this;
 
@@ -57,9 +57,11 @@ export class Subject extends EventEmitter {
             }
         }
         new_pos();
+        await this.StartGazeDetectorTraining();
     }
 
-    public StopGazeDetectorCalibration() {
+    public async StopGazeDetectorCalibration() {
+        await this.StopGazeDetectorTraining();
         if (this.gazeDetector && this.isGazeDetectionActive)
             this.gazeDetector.TargetPos = undefined;
     }
@@ -67,11 +69,14 @@ export class Subject extends EventEmitter {
         return await save_gaze_calibration();
     }
 
-    public async ToggleGazeDetectorTraining() {
+    public async StartGazeDetectorTraining() {
         if (this.gazeDetector)
-            await this.gazeDetector.toggleGazeDetectorTraining();
+            await this.gazeDetector.startGazeDetectorTraining();
     }
-
+    public async StopGazeDetectorTraining() {
+        if (this.gazeDetector)
+            await this.gazeDetector.stopGazeDetectorTraining();
+    }
     public async StartGazeDetection() {
         if (this.isGazeDetectionActive)
             return;

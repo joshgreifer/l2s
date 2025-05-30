@@ -20,3 +20,11 @@ class GazeModel(torch.nn.Module):
             self.logger.warning(f'{filename} not found, using random weights.')
         except RuntimeError as err:
             self.logger.warning(f'{filename} model is incompatible with this version, using random weights. {err}')
+
+    def set_calibration_mode(self, mode: bool):
+        """
+        Set the calibration mode for the model.
+        :param mode: True for calibration mode, False for full-training mode.
+        """
+        pass
+

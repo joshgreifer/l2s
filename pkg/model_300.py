@@ -39,6 +39,26 @@ class GazePCA(GazeModel):
         if filename is not None:
             self.load(filename)
 
+    def set_calibration_mode(self, mode: bool):
+        """
+        Set the calibration mode for the model.
+        :param mode: True for calibration mode, False for full training mode.
+        """
+        # In calibration mode, we freeze all layers except the last one
+        # This allows the model to adapt only the final layer during calibration
+
+        if mode:
+            for param in self.mlp.parameters():
+                param.requires_grad = False
+            for param in self.mlp[-2].parameters():
+                param.requires_grad = True
+            for param in self.mlp[-1].parameters():
+                param.requires_grad = True
+        else:
+            for param in self.mlp.parameters():
+                param.requires_grad = True
+
+
     def forward(self, x):
         batch_size, num_nodes, in_channels = x.shape
         # Flatten the input to match PCA input shape

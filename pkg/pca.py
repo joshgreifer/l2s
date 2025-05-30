@@ -24,7 +24,7 @@ def get_landmarks_matrix(dataset: SimpleDataset):
 
 import matplotlib.pyplot as plt
 
-def plot_pca_variation(pca, pc_idx, std_multiples=[-8, -4, 0, 4, 8], landmark_shape=(478, 3)):
+def plot_pca_variation(pca, pc_idx, std_multiples=[-32, -4, 0, 4, 32], landmark_shape=(478, 3)):
     """
     Plot how the landmarks change along a single principal component.
 

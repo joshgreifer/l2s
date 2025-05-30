@@ -171,13 +171,8 @@ export class GazeDetector extends EventEmitter {
 
     }
 
-    async toggleGazeDetectorTraining() {
-        if (this.continuousTrainer) {
-            this.continuousTrainer.Stop();
-            if (this.training_promise)
-                await this.training_promise;
-            this.continuousTrainer = this.training_promise = undefined;
-        } else {
+    async startGazeDetectorTraining() {
+        if (!this.continuousTrainer) {
             this.continuousTrainer = new ContinuousTrainer();
             this.continuousTrainer.on('data', (loss) => {
             });
@@ -186,7 +181,14 @@ export class GazeDetector extends EventEmitter {
         }
 
     }
-
+    async stopGazeDetectorTraining() {
+        if (this.continuousTrainer) {
+            this.continuousTrainer.Stop();
+            if (this.training_promise)
+                await this.training_promise;
+            this.continuousTrainer = this.training_promise = undefined;
+        }
+    }
     async startGazeDetection() {
         const this_ = this;
         const v = this.videoCaptureElement;

@@ -46,10 +46,10 @@ export async function save_gaze_calibration() : Promise<boolean> {
 }
 
 
-export async function train(epochs: number) : Promise<iGazeDetectorTrainResult> {
+export async function train(epochs: number, action: "train" | "calibrate") : Promise<iGazeDetectorTrainResult> {
 
 
-    const api_response = await fetch(`/api/gaze/train/${epochs}`, {
+    const api_response = await fetch(`/api/gaze/${action}/${epochs}`, {
 
         method: 'post',
         headers: {

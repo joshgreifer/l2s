@@ -32,9 +32,9 @@ export class Session {
 
         const handleUtteranceKeyboardShortcuts = async (evt: KeyboardEvent) => {
             if (evt.key === 's') {
-                this.Notify("Saving gaze calibration.");
+                this.Notify("Saving model.");
                 const success = await s.SaveGazeDetectorCalibration();
-                this.Notify(success ? "Saved gaze calibration." : "Failed to save gaze calibration.");
+                this.Notify(success ? "Saved model." : "Failed to save model.");
 
             } else if (evt.key === 'c') {
                 if (s.isGazeCalibrationActive)
@@ -42,13 +42,7 @@ export class Session {
                 else
                     await s.StartGazeDetectorCalibration();
 
-                this.Notify(s.isGazeCalibrationActive ? "Collecting data for calibration." : "Collecting data ended. Press t to start training.");
-
-            } else if (evt.key === 't') {
-
-                    await s.ToggleGazeDetectorTraining();
-
-                this.Notify("Toggling training.");
+                this.Notify(s.isGazeCalibrationActive ? "Calibration started." : "Calibration stopped.");
 
             }
 

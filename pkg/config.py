@@ -8,6 +8,7 @@ class Config:
     def __init__(self):
         # load config from cache/config.json
 
+
         config = None
         try:
             with open('cache/config.json', 'r') as f:
@@ -42,9 +43,10 @@ class Config:
 
             # Max capacity of dataset.
             # The dataset is a ring buffer, so data can be continuously added (loses the oldest data).
-            # The capacity should be  kept small so that training can track changing poses/lighting etc.
-            self.dataset_capacity = 8192
 
+            self.dataset_capacity = 8192
+            # The capacity of the temp dataset should be  kept small so that fine-tuning can track changing poses/lighting etc.
+            self.fine_tuning_dataset_capacity = 2048
             # Minimum size of dataset before training can begin
             self.dataset_min_size = 512
 

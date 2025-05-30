@@ -52,13 +52,17 @@ class Landmarks2ScreenCoords:
         #                                  lr=self.config.lr,
         #                                  momentum=self.config.momentum,
         #                                  nesterov=self.config.nesterov)
-        self.optimizer = torch.optim.Adam(self.model.parameters(),
-                                          lr=self.config.lr, betas=self.config.betas, weight_decay=self.config.weight_decay)
-
+        self.optimizer = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, self.model.parameters()),
+            lr=self.config.lr, betas=self.config.betas, weight_decay=self.config.weight_decay
+        )
         self.scheduler = StepLR(self.optimizer, step_size=self.config.step_size, gamma=self.config.gamma)
 
         self.dataset = SimpleDataset(capacity=self.config.dataset_capacity, logger=logger)
         self.dataset.load(self.config.dataset_path)
+
+        self.fine_tuning_dataset = SimpleDataset(capacity=self.config.fine_tuning_dataset_capacity, logger=logger)
+
         self.losses = {"h_loss": 0., "v_loss": 0., "loss": 0.}
 
         # self.model.eval()
@@ -67,12 +71,22 @@ class Landmarks2ScreenCoords:
     def save(self):
         self.model.save(self.config.checkpoint)
 
-    def train(self, epochs):
-        if len(self.dataset) >= self.config.dataset_min_size:
+    def train(self, epochs, calibration_mode=False):
+        self.model.set_calibration_mode(calibration_mode)
+
+        self.model.train()
+        if calibration_mode:
+            dataset = self.fine_tuning_dataset
+            print(f"Fine-tuning with dataset size: {len(dataset)}")
+        else:
+            dataset = self.dataset
+            print(f"Training with dataset size: {len(dataset)}")
+
+        if len(dataset) >= self.config.dataset_min_size:
             self.model.train()
 
-            loader = torch.utils.data.DataLoader(dataset=self.dataset, batch_size=self.config.batch_size, shuffle=True)
-            logging.getLogger('app').info(f"Training with dataset size: {len(self.dataset)}")
+            loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=self.config.batch_size, shuffle=True)
+
 
             if epochs <= 0:
                 epochs = 1 + len(self.dataset) // 100
@@ -118,7 +132,7 @@ class Landmarks2ScreenCoords:
 
                     if (epoch % self.config.model_checkpoint_frequency) == 0:
                         self.save()
-
+        self.model.eval()
         return self.losses
 
     def predict(self, landmarks, label):
@@ -143,9 +157,9 @@ class Landmarks2ScreenCoords:
         # If we're gathering training data, add the landmarks (x) and label (y)
         # In the training dataset.
         if label is not None:
-
-            self.dataset.add_item(landmarks, torch.Tensor(label).to(torch.float32))
-
+            label_as_tensor = torch.Tensor(label).to(torch.float32)
+            self.dataset.add_item(landmarks, label_as_tensor)
+            self.fine_tuning_dataset.add_item(landmarks, label_as_tensor)
             # Save dataset periodically
             if (self.dataset.idx % self.config.dataset_checkpoint_frequency) == 0:
                 self.dataset.save(self.config.dataset_path)
@@ -194,7 +208,19 @@ if __name__ == '__main__':
         l2s = Landmarks2ScreenCoords(logging.getLogger())
 
         print(f"Running model on device: {next(l2s.model.parameters()).device}")
-        l2s.train(1000)
+        #get the number of epochs and calibration mode from the arguments without argparse
+        import sys
+        if len(sys.argv) > 1:
+            epochs = int(sys.argv[1])
+        else:
+            epochs = 1000
+        if len(sys.argv) > 2:
+            calibration_mode = sys.argv[2].lower() == 'true'
+        else:
+            calibration_mode = False
+        print(f"Training for {epochs} epochs, calibration mode: {calibration_mode}")
+
+        l2s.train(epochs, calibration_mode)
     try:
         main()
     except Exception as e:

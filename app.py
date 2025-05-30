@@ -30,8 +30,11 @@ def api_index():
 
 @app.route('/api/gaze/train/<int:epochs>', methods=['POST'])
 def train(epochs):
-    return l2coord.train(epochs)
+    return l2coord.train(epochs, calibration_mode=False)
 
+@app.route('/api/gaze/calibrate/<int:epochs>', methods=['POST'])
+def calibrate(epochs):
+    return l2coord.train(epochs, calibration_mode=True)
 
 @app.route('/api/gaze/pca', methods=['POST'])
 def pca():

@@ -8,7 +8,7 @@ export class ContinuousTrainer extends DataConnection {
     async Start() {
         while (!this.stop_request) {
             let t = window.performance.now();
-            const losses = await train(1);
+            const losses = await train(1, "calibrate");
             console.debug("LOSS:", losses);
             this.AddData(new Float32Array([losses.loss, losses.v_loss, losses.h_loss]));
             const t2 = window.performance.now();
