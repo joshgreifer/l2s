@@ -92,7 +92,7 @@ class Landmarks2ScreenCoords:
                             dists = torch.mean(abs(pred - y), dim=0)
                             h_dist = dists[0]
                             v_dist = dists[1]
-                            loss = torch.pow(v_dist, 3) + torch.pow(h_dist, 3)
+                            loss = torch.sqrt(torch.pow(v_dist, 2) + torch.pow(h_dist, 2))
 
                             losses["loss"] += loss.cpu().item()
                             losses["h_loss"] += h_dist.cpu().item()

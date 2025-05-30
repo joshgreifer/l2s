@@ -205,12 +205,15 @@ export class GazeDetector extends EventEmitter {
 
         // If user clicks on the overlay canvas, we set the target position to the clicked point in absolute screen coordinates (not local to the canvas)
         overlayCanvas.addEventListener('click', (evt) => {
-            const rect = overlayCanvas.getBoundingClientRect();
             const x = evt.screenX;
             const y = evt.screenY;
             this_.TargetPos = {x: x, y: y};
-        });
 
+        });
+        // set the TargetPos to undefined when the mouse leaves the overlay canvas
+        overlayCanvas.addEventListener('mouseleave', () => {
+            this_.TargetPos = undefined;
+        });
         // set the cursor to a crosshair when hovering over the overlay canvas
         overlayCanvas.style.cursor = 'crosshair';
 
@@ -233,10 +236,6 @@ export class GazeDetector extends EventEmitter {
 
                 const landmarks = landmarkerResult.faceLandmarks[0];
                 this_.emit('LandMarkDetectionComplete', landmarks);
-                // const landmarkFeatures = LandMarkDetector.GetFeaturesFromLandmarks(landmarkerResult);
-                // TEST TEST
-                // const grid = LandMarkDetector.PackLandmarksIntoGrid(landmarkerResult);
-                // console.log(grid)
 
                 if (landmarks) {
 
@@ -317,7 +316,7 @@ export class GazeDetector extends EventEmitter {
         // Hide the target element
         targetElement.setPosition(undefined);
 
-        targetElement.setTransitionStyle('all 0.6s ease-in-out');
+        targetElement.setTransitionStyle('all 0.4s ease-in-out');
         // Default size for target.
         // Will change size and shape during training to reflect horizontal and vertical loss
         targetElement.setRadius(25, 25);

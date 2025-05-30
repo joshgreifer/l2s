@@ -29,6 +29,8 @@ class GazePCA(GazeModel):
             nn.ReLU(),
             nn.Linear(config.hidden_channels, config.hidden_channels),
             nn.ReLU(),
+            nn.Linear(config.hidden_channels, config.hidden_channels),
+            nn.ReLU(),
             nn.Linear(config.hidden_channels, 2),
         )
         self.last_act = torch.nn.Tanh()
