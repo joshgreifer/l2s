@@ -32,7 +32,7 @@ async function fetch_handling_server_error(input: RequestInfo, init: RequestInit
     return resp;
 }
 
-export async function save_gaze_calibration() : Promise<boolean> {
+export async function save_gaze_model() : Promise<boolean> {
     const api_response = await fetch(`/api/gaze/save`, {
 
         method: 'post',
@@ -83,24 +83,5 @@ export async function post_landmarks(landmarks: any[], target: {  x: number, y: 
     });
     return await api_response.json();
 }
-export async function post_landmark_features(landmarks: LandmarkFeatures, target: {  x: number, y: number } | undefined = undefined) : Promise<iGazeDetectorResult | undefined> {
 
-    let target_post = target ? { target_x: target.x.toString() , target_y: target.y.toString()} :  { target_x: "undefined", target_y: "undefined"}
-
-    const landmarks_and_target = {
-        landmarks: landmarks,
-        target: target_post
-    }
-
-    const api_response = await fetch(`/api/gaze/landmark-features`, {
-
-        method: 'post',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify(landmarks_and_target)
-    });
-    return await api_response.json();
-}
 

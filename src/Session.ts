@@ -26,24 +26,31 @@ export class Session {
 
         window.setTimeout( ()=> {
             this.notificationDiv.style.opacity = "0";
-        }, 3000);
+        }, 5000);
     }
     public async Run() {
 
         const handleUtteranceKeyboardShortcuts = async (evt: KeyboardEvent) => {
             if (evt.key === 's') {
                 this.Notify("Saving model.");
-                const success = await s.SaveGazeDetectorCalibration();
+                const success = await s.SaveGazeDetectorModel();
                 this.Notify(success ? "Saved model." : "Failed to save model.");
 
-            } else if (evt.key === 'c') {
-                if (s.isGazeCalibrationActive)
-                    await s.StopGazeDetectorCalibration();
+            } else if (evt.key === ' ') {
+                if (s.isDataAcquisitionActive)
+                    await s.StopDataAcquisition();
                 else
-                    await s.StartGazeDetectorCalibration();
+                    await s.StartDataAcquisition();
 
-                this.Notify(s.isGazeCalibrationActive ? "Calibration started." : "Calibration stopped.");
+                this.Notify(s.isDataAcquisitionActive ? "Data acquisition started." : "Data acquisition stopped.");
 
+            } else if (evt.key === 'c') {
+                if (s.isTrainingActive)
+                    await s.StopTraining();
+                else
+                    await s.StartTraining();
+
+                this.Notify(s.isTrainingActive ? "Calibration started." : "Calibration stopped.");
             }
 
         };

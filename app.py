@@ -30,41 +30,27 @@ def api_index():
 
 @app.route('/api/gaze/train/<int:epochs>', methods=['POST'])
 def train(epochs):
-    return l2coord.train(epochs, calibration_mode=False)
+    if l2coord.model is not None:
+        return l2coord.train(epochs, calibration_mode=False)
+    else:
+        return l2coord.losses
 
 @app.route('/api/gaze/calibrate/<int:epochs>', methods=['POST'])
 def calibrate(epochs):
-    return l2coord.train(epochs, calibration_mode=True)
+    if l2coord.model is not None:
+        return l2coord.train(epochs, calibration_mode=True)
+    else:
+        return l2coord.losses
+
 
 @app.route('/api/gaze/pca', methods=['POST'])
 def pca():
-
     return l2coord.do_pca()
 
 
 @app.route('/api/gaze/config', methods=['POST'])
 def config():
     return {'config': Config().__dict__}
-
-
-@app.route('/api/gaze/landmark-features', methods=['POST'])
-def landmark_features():
-
-    landmarks_and_target = request.json
-
-    feats = landmarks_and_target["landmarks"]
-    target = landmarks_and_target["target"]
-
-    if target["target_x"] != "undefined":
-        target = [float(target["target_x"]), float(target["target_y"])]
-    else:
-        target = None
-
-    # Send to landmark model
-    # print("---------------------------------------------------")
-    # print(feats)
-    # print("---------------------------------------------------")
-    return l2coord.predict(feats, target)
 
 
 @app.route('/api/gaze/landmarks', methods=['POST'])

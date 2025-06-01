@@ -24,16 +24,27 @@ class GazePCA(GazeModel):
             raise RuntimeError(f"Error loading PCA model from {config.pca_path}: {e}")
 
 
-        self.mlp =  nn.Sequential(
-            nn.Linear(self.pca.n_components_, config.hidden_channels),
-            nn.ReLU(),
-            nn.Linear(config.hidden_channels, config.hidden_channels),
-            nn.ReLU(),
-            nn.Linear(config.hidden_channels, config.hidden_channels),
-            nn.ReLU(),
-            nn.Linear(config.hidden_channels, 2),
-        )
-        self.last_act = torch.nn.Tanh()
+        mlp_layers = [nn.Linear(self.pca.n_components_, config.hidden_channels), nn.ReLU()]
+        for _ in  range(config.num_mlp_layers):
+            mlp_layers.append(nn.Linear(config.hidden_channels, config.hidden_channels))
+            mlp_layers.append(nn.ReLU())
+
+
+        self.mlp =  nn.Sequential(*mlp_layers)
+
+        calibration_layers = []
+        for _ in range(config.num_calibration_layers):
+            # initialize calibration layers to identity
+            fc = nn.Linear(config.hidden_channels, config.hidden_channels)
+            with torch.no_grad():
+                fc.weight.copy_(torch.eye(config.hidden_channels))
+                fc.bias.zero_()
+            calibration_layers.append(fc)
+            calibration_layers.append(nn.ReLU())
+        self.calibration_layers = nn.Sequential(*calibration_layers)
+
+        self.last_fc = nn.Linear(config.hidden_channels, 2)
+        self.last_act = nn.Tanh()
         self.config = config
 
         if filename is not None:
@@ -46,17 +57,12 @@ class GazePCA(GazeModel):
         """
         # In calibration mode, we freeze all layers except the last one
         # This allows the model to adapt only the final layer during calibration
-
         if mode:
             for param in self.mlp.parameters():
                 param.requires_grad = False
-            for param in self.mlp[-2].parameters():
-                param.requires_grad = True
-            for param in self.mlp[-1].parameters():
-                param.requires_grad = True
         else:
-            for param in self.mlp.parameters():
-                param.requires_grad = True
+            for param in self.calibration_layers.parameters():
+                param.requires_grad = False
 
 
     def forward(self, x):
@@ -74,7 +80,11 @@ class GazePCA(GazeModel):
 
         # Pass through the MLP
         x = self.mlp(x_pca)
+        # Pass through the calibration stage
+        x = self.calibration_layers(x)
 
+        # reduce to x, y
+        x = self.last_fc(x)
         # Apply the final activation function
         x = self.last_act(x)
 

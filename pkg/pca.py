@@ -1,5 +1,6 @@
 import joblib
 import numpy as np
+import torch
 
 from pkg.config import Config
 from pkg.simple_dataset import SimpleDataset
@@ -17,6 +18,8 @@ def get_landmarks_matrix(dataset: SimpleDataset):
 
     for i in range(num_samples):
         landmarks, _ = dataset._db[i]
+        if isinstance(landmarks, torch.Tensor):
+            landmarks = landmarks.cpu().numpy()
         landmarks_array[i] = landmarks  # shape: [468, 3]
 
     return landmarks_array  # shape: [num_samples, 468, 3]

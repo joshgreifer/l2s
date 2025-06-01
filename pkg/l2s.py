@@ -1,6 +1,6 @@
 import logging
-
-
+import math
+from math import gamma
 
 import numpy as np
 import torch
@@ -30,109 +30,112 @@ export interface LandmarkFeatures {
 class Landmarks2ScreenCoords:
 
     def __init__(self, logger):
+        try:
+            self.config = Config()
+            self.logger = logger
+            self.mode = 'eval'
+            self.device = self.config.device
+            self.target = np.ndarray((2,))  # x, y coords, -1..1, origin center of the screen
+            if self.config.version == 300:
+                model = GazePCA
+            elif self.config.version == 400:
+                model = GazeResNet
+            elif self.config.version == 500:
+                model = GazeGCN
+            elif self.config.version == 600:
+                model = GazeGAT
+            else:
+                raise ValueError(f"Unsupported model version: {self.config.version}")
 
-        self.config = Config()
-        self.logger = logger
-        self.mode = 'eval'
-        self.device = self.config.device
-        self.target = np.ndarray((2,))  # x, y coords, -1..1, origin center of the screen
-        if self.config.version == 300:
-            model = GazePCA
-        elif self.config.version == 400:
-            model = GazeResNet
-        elif self.config.version == 500:
-            model = GazeGCN
-        elif self.config.version == 600:
-            model = GazeGAT
-        else:
-            raise ValueError(f"Unsupported model version: {self.config.version}")
+            self.model = model(self.config, logger=logger, filename=self.config.checkpoint).to(self.device)
 
-        self.model = model(self.config, logger=logger, filename=self.config.checkpoint).to(self.device)
-        # self.optimizer = torch.optim.SGD(self.model.parameters(),
-        #                                  lr=self.config.lr,
-        #                                  momentum=self.config.momentum,
-        #                                  nesterov=self.config.nesterov)
-        self.optimizer = torch.optim.Adam(
-            filter(lambda p: p.requires_grad, self.model.parameters()),
-            lr=self.config.lr, betas=self.config.betas, weight_decay=self.config.weight_decay
-        )
-        self.scheduler = StepLR(self.optimizer, step_size=self.config.step_size, gamma=self.config.gamma)
+            self.optimizer = torch.optim.Adam(
+                filter(lambda p: p.requires_grad, self.model.parameters()),
+                lr=self.config.lr, betas=self.config.betas, weight_decay=self.config.weight_decay
+            )
+            self.scheduler = StepLR(self.optimizer, step_size=self.config.step_size, gamma=self.config.gamma)
+
+        except (RuntimeError, FileNotFoundError, ValueError) as e:
+            print(f"Couldn't initialize model: {e}")
+            self.model = None
 
         self.dataset = SimpleDataset(capacity=self.config.dataset_capacity, logger=logger)
-        self.dataset.load(self.config.dataset_path)
+        self.dataset.load(self.config.dataset_path, expand_to_fit=False)
 
         self.fine_tuning_dataset = SimpleDataset(capacity=self.config.fine_tuning_dataset_capacity, logger=logger)
 
-        self.losses = {"h_loss": 0., "v_loss": 0., "loss": 0.}
+        self.losses = {"h_loss": 1., "v_loss": 1., "loss": math.sqrt(2)}
 
-        # self.model.eval()
 
 
     def save(self):
-        self.model.save(self.config.checkpoint)
+        if self.model:
+            self.model.save(self.config.checkpoint)
 
     def train(self, epochs, calibration_mode=False):
-        self.model.set_calibration_mode(calibration_mode)
+        if self.model:
 
-        self.model.train()
-        if calibration_mode:
-            dataset = self.fine_tuning_dataset
-            print(f"Fine-tuning with dataset size: {len(dataset)}")
-        else:
-            dataset = self.dataset
-            print(f"Training with dataset size: {len(dataset)}")
+            self.model.set_calibration_mode(calibration_mode)
 
-        if len(dataset) >= self.config.dataset_min_size:
-            self.model.train()
+            if calibration_mode:
+                dataset =  self.fine_tuning_dataset
+                print(f"Fine-tuning with dataset size: {len(dataset)}")
+            else:
+                dataset = self.dataset
+                print(f"Training with dataset size: {len(dataset)}")
 
-            loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=self.config.batch_size, shuffle=True)
+            if len(dataset) >= self.config.dataset_min_size:
+                self.model.train()
+
+                loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=self.config.batch_size, shuffle=True)
 
 
-            if epochs <= 0:
-                epochs = 1 + len(self.dataset) // 100
+                if epochs <= 0:
+                    epochs = 1 + len(self.dataset) // 100
 
-            with tqdm(total=epochs, desc="Training Progress") as pbar:
-                for epoch in range(epochs):
-                    losses = {"h_loss": 0., "v_loss": 0., "loss": 0.}
-                    n_batches = 0
+                with tqdm(total=epochs, desc="Training Progress") as pbar:
+                    for epoch in range(epochs):
+                        losses = {"h_loss": 0., "v_loss": 0., "loss": 0.}
+                        n_batches = 0
 
-                    for n_batches, (idx, x, y) in enumerate(loader):
-                        x = x.to(self.device)
-                        y = y.to(self.device)
+                        for n_batches, (idx, x, y) in enumerate(loader):
+                            x = x.to(self.device)
+                            y = y.to(self.device)
 
-                        pred = self.model(x)
+                            pred = self.model(x)
 
-                        try:
-                            dists = torch.mean(abs(pred - y), dim=0)
-                            h_dist = dists[0]
-                            v_dist = dists[1]
-                            loss = torch.sqrt(torch.pow(v_dist, 2) + torch.pow(h_dist, 2))
+                            try:
+                                dists = torch.mean(abs(pred - y), dim=0)
+                                h_dist = dists[0]
+                                v_dist = dists[1]
+                                loss = torch.sqrt(torch.pow(v_dist, 2) + torch.pow(h_dist, 2))
 
-                            losses["loss"] += loss.cpu().item()
-                            losses["h_loss"] += h_dist.cpu().item()
-                            losses["v_loss"] += v_dist.cpu().item()
-                            self.optimizer.zero_grad()
-                            loss.backward()
-                            self.optimizer.step()
-                        except IndexError:
-                            continue
+                                losses["loss"] += loss.cpu().item()
+                                losses["h_loss"] += h_dist.cpu().item()
+                                losses["v_loss"] += v_dist.cpu().item()
+                                self.optimizer.zero_grad()
+                                loss.backward()
+                                self.optimizer.step()
+                            except IndexError:
+                                continue
 
-                    # Compute average losses for the epoch
-                    losses["loss"] /= n_batches + 1
-                    losses["h_loss"] /= n_batches + 1
-                    losses["v_loss"] /= n_batches + 1
-                    self.losses = losses
+                        # Compute average losses for the epoch
+                        losses["loss"] /= n_batches + 1
+                        losses["h_loss"] /= n_batches + 1
+                        losses["v_loss"] /= n_batches + 1
+                        self.losses = losses
 
-                    # Update the progress bar at the end of the epoch
-                    pbar.set_postfix(h_loss=self.losses["h_loss"], v_loss=self.losses["v_loss"], loss=self.losses["loss"])
-                    pbar.update(1)
+                        # Update the progress bar at the end of the epoch
+                        pbar.set_postfix(h_loss=self.losses["h_loss"], v_loss=self.losses["v_loss"], loss=self.losses["loss"])
+                        pbar.update(1)
 
-                    self.scheduler.step()
-                    # logging.getLogger('app').info(f'Epoch {epoch + 1}: lr {self.scheduler.get_last_lr()}  h_loss: {self.losses["h_loss"]: .4f} v_loss: {self.losses["v_loss"]: .4f}')
+                        self.scheduler.step()
+                        # logging.getLogger('app').info(f'Epoch {epoch + 1}: lr {self.scheduler.get_last_lr()}  h_loss: {self.losses["h_loss"]: .4f} v_loss: {self.losses["v_loss"]: .4f}')
 
-                    if (epoch % self.config.model_checkpoint_frequency) == 0:
-                        self.save()
-        self.model.eval()
+                        if (epoch % self.config.model_checkpoint_frequency) == 0:
+                            self.save()
+            self.model.eval()
+
         return self.losses
 
     def predict(self, landmarks, label):
@@ -167,13 +170,16 @@ class Landmarks2ScreenCoords:
                     f"Saved dataset to {self.config.dataset_path}. Dataset size {len(self.dataset)}")
 
         # Predict the gaze coordinates
-        with torch.no_grad():
-            self.model.eval()
-            pred = self.model(torch.unsqueeze(landmarks, 0).to(self.device))
 
-            pred = torch.squeeze(pred)
-            gaze_location = pred.cpu().detach().numpy()
+        if self.model is not None:
+            with torch.no_grad():
+                self.model.eval()
+                pred = self.model(torch.unsqueeze(landmarks, 0).to(self.device))
 
+                pred = torch.squeeze(pred)
+                gaze_location = pred.cpu().detach().numpy()
+        else:
+            gaze_location = [0,0]
         # print(label, features, gaze_location)
         return {
             'data_index': self.dataset.idx,

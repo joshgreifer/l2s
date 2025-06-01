@@ -5,4 +5,4 @@ pip install torch_geometric
 pip install scipy
 pip install scikit-learn
 pip install requests
-
+pip install matplotlib

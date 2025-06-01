@@ -38,6 +38,9 @@ class Config:
             # Model hyperparameters
             self.hidden_channels = 3 # for v.500
 
+            # An MLP of very small fc blocks
+            self.num_calibration_layers = 8
+            self.num_mlp_layers = 1
             # Number of resblocks.  Only used if version >= 102, earlier versions hard-code it to 4
             self.num_resblocks = 5
 

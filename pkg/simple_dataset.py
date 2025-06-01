@@ -41,7 +41,12 @@ class SimpleDataset(torch.utils.data.Dataset):
             "full": self.full,
         }, filename)
 
-    def load(self, filename):
+    def load(self, filename, expand_to_fit=True):
+        """
+        Load the dataset from a file.
+        :param filename: The file to load the dataset from.
+        :param expand_to_fit: If True, expand the dataset to fit the loaded data, otherwise fill up to the current capacity.
+        """
         try:
             db = torch.load(filename)
             loaded_capacity = db["capacity"]
@@ -49,16 +54,22 @@ class SimpleDataset(torch.utils.data.Dataset):
 
             loaded_size = loaded_capacity if db["full"] else db["idx"]
             if self.capacity <= loaded_capacity:
-                self._db = loaded_db
-                self.capacity = loaded_capacity
-                self.full = db["full"]
-                self.idx = db["idx"]
+                # Set the capacity to that of the loaded dataset
+                if expand_to_fit:
+                    self._db = loaded_db
+                    self.capacity = loaded_capacity
+                    self.full = db["full"]
+                    self.idx = db["idx"]
+                else:
+                    self._db = loaded_db[:self.capacity]
+                    self.full = True if self.capacity < loaded_capacity else db["full"]
+                    self.idx = db["idx"] % self.capacity if self.capacity < loaded_capacity else db["idx"]
 
             else:
                 self._db[:loaded_capacity] = loaded_db
                 self.full = False
                 self.idx = loaded_capacity
-
+            print(f'Loaded database: Capacity {self.capacity}, full: {self.full}, idx : {self.idx}, len() = {len(self)}')
         except RuntimeError as er:
             self.logger.warning(er)
         except FileNotFoundError:

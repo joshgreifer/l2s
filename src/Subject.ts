@@ -1,7 +1,7 @@
 import EventEmitter from "eventemitter3";
 
 import {GazeDetector, iGazeDetectorResult} from "./GazeDetector";
-import {save_gaze_calibration} from "./apiService";
+import {save_gaze_model} from "./apiService";
 
 
 export class Subject extends EventEmitter {
@@ -11,10 +11,12 @@ export class Subject extends EventEmitter {
     private isGazeDetectionActive: boolean = false;
 
     public get GazeDetectionActive(): boolean { return this.isGazeDetectionActive; }
-    public get isGazeCalibrationActive(): boolean {
+    public get isDataAcquisitionActive(): boolean {
         return this.gazeDetector !== undefined && this.gazeDetector.TargetPos !== undefined;
     };
-
+    public get isTrainingActive(): boolean {
+        return this.gazeDetector !== undefined && this.gazeDetector.isTraining;
+    };
     private targetTimeMs = 5000;
 
     public set TargetTimeMs(t:number) { this.targetTimeMs = t;
@@ -30,7 +32,7 @@ export class Subject extends EventEmitter {
         this.isGazeDetectionActive = false;
     }
 
-    public async StartGazeDetectorCalibration() {
+    public async StartDataAcquisition() {
 
         const this_ = this;
 
@@ -57,25 +59,24 @@ export class Subject extends EventEmitter {
             }
         }
         new_pos();
-        await this.StartGazeDetectorTraining();
+
     }
 
-    public async StopGazeDetectorCalibration() {
-        await this.StopGazeDetectorTraining();
+    public async StopDataAcquisition() {
         if (this.gazeDetector && this.isGazeDetectionActive)
             this.gazeDetector.TargetPos = undefined;
     }
-    public async SaveGazeDetectorCalibration(): Promise<boolean> {
-        return await save_gaze_calibration();
+    public async SaveGazeDetectorModel(): Promise<boolean> {
+        return await save_gaze_model();
     }
 
-    public async StartGazeDetectorTraining() {
-        if (this.gazeDetector)
-            await this.gazeDetector.startGazeDetectorTraining();
+    public async StartTraining() {
+        if (this.gazeDetector && !this.gazeDetector.isTraining)
+            await this.gazeDetector.startTraining();
     }
-    public async StopGazeDetectorTraining() {
-        if (this.gazeDetector)
-            await this.gazeDetector.stopGazeDetectorTraining();
+    public async StopTraining() {
+        if (this.gazeDetector && this.gazeDetector.isTraining)
+            await this.gazeDetector.stopTraining();
     }
     public async StartGazeDetection() {
         if (this.isGazeDetectionActive)

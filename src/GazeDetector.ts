@@ -114,7 +114,7 @@ export class GazeDetector extends EventEmitter {
     }
 
     public get isTraining(): boolean {
-        return this.target_pos !== undefined;
+        return this.training_promise !== undefined;
     }
 
     // public Mode: GazeDetectorMode = 'features';
@@ -171,7 +171,7 @@ export class GazeDetector extends EventEmitter {
 
     }
 
-    async startGazeDetectorTraining() {
+    async startTraining() {
         if (!this.continuousTrainer) {
             this.continuousTrainer = new ContinuousTrainer();
             this.continuousTrainer.on('data', (loss) => {
@@ -181,7 +181,7 @@ export class GazeDetector extends EventEmitter {
         }
 
     }
-    async stopGazeDetectorTraining() {
+    async stopTraining() {
         if (this.continuousTrainer) {
             this.continuousTrainer.Stop();
             if (this.training_promise)

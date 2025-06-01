@@ -6,12 +6,12 @@
   "hidden_channels": 64,
   "num_resblocks": 5,
   "dataset_capacity": 65536,
-  "fine_tuning_dataset_capacity": 2048,
-  "dataset_min_size": 512,
+  "fine_tuning_dataset_capacity": 4096,
+  "dataset_min_size": 2048,
   "dataset_checkpoint_frequency": 2048,
   "model_checkpoint_frequency": 100,
   "batch_size": 256,
-  "lr": 0.001,
+  "lr": 1e-4,
   "step_size": 50,
   "gamma": 0.99,
   "momentum": 0.5,
@@ -22,6 +22,7 @@
   "model_300": {
     "model_type": "MLP",
     "hidden_channels": 256,
-    "points_of_interest_indices":  [6, 10, 152, 156, 234, 454, 468, 473]
+    "num_calibration_layers":  2,
+    "num_mlp_layers": 2
   }
 }
