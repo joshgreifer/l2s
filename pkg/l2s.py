@@ -104,20 +104,20 @@ class Landmarks2ScreenCoords:
 
                             pred = self.model(x)
 
-                            try:
-                                dists = torch.norm(pred - y, dim=1)
-                                h_dist = dists[0]
-                                v_dist = dists[1]
-                                loss = dists.mean()
 
-                                losses["loss"] += loss.cpu().item()
-                                losses["h_loss"] += h_dist.cpu().item()
-                                losses["v_loss"] += v_dist.cpu().item()
-                                self.optimizer.zero_grad()
-                                loss.backward()
-                                self.optimizer.step()
-                            except IndexError:
-                                continue
+                            dists = torch.norm(pred - y, dim=1)
+                            diff = pred - y
+                            h_dist = diff[:, 0].abs().mean()
+                            v_dist = diff[:, 1].abs().mean()
+                            loss = dists.mean()
+
+                            losses["loss"] += loss.cpu().item()
+                            losses["h_loss"] += h_dist.cpu().item()
+                            losses["v_loss"] += v_dist.cpu().item()
+                            self.optimizer.zero_grad()
+                            loss.backward()
+                            self.optimizer.step()
+
 
                         # Compute average losses for the epoch
                         losses["loss"] /= n_batches + 1
