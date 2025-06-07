@@ -1,6 +1,6 @@
 import logging
 import math
-from math import gamma
+import sys
 
 import numpy as np
 import torch
@@ -9,11 +9,11 @@ from torch.optim.lr_scheduler import StepLR
 from tqdm import tqdm
 
 from pkg.config import Config
-from pkg.model_300 import GazePCA
-from pkg.model_600 import GazeGAT
-from pkg.simple_dataset import SimpleDataset
-from pkg.model_400 import GazeResNet
-from pkg.model_500 import  GazeGCN
+from pkg.dataset import SequenceDataset, SimpleDataset
+
+from pkg.model_pca_mlp import GazePCAMLP
+from pkg.util import log
+
 """
 export interface LandmarkFeatures {
     face_oval: Number[][];
@@ -27,42 +27,36 @@ export interface LandmarkFeatures {
 """
 
 
-class Landmarks2ScreenCoords:
+class L2S:
 
-    def __init__(self, logger):
+    def __init__(self, config):
         try:
-            self.config = Config()
-            self.logger = logger
+            self.config = config
             self.mode = 'eval'
-            self.device = self.config.device
+            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
             self.target = np.ndarray((2,))  # x, y coords, -1..1, origin center of the screen
-            if self.config.version == 300:
-                model = GazePCA
-            elif self.config.version == 400:
-                model = GazeResNet
-            elif self.config.version == 500:
-                model = GazeGCN
-            elif self.config.version == 600:
-                model = GazeGAT
-            else:
-                raise ValueError(f"Unsupported model version: {self.config.version}")
 
-            self.model = model(self.config, logger=logger, filename=self.config.checkpoint).to(self.device)
+            if self.config.model_type == 'GazePCAMLP':
+                model = GazePCAMLP
+            else:
+                raise ValueError(f"Unsupported model type: {self.config.model_type}")
+
+            self.model = model(self.config,  filename=self.config.checkpoint).to(self.device)
 
             self.optimizer = torch.optim.Adam(
                 filter(lambda p: p.requires_grad, self.model.parameters()),
-                lr=self.config.lr, betas=self.config.betas, weight_decay=self.config.weight_decay
+                lr=self.config.train.lr, betas=self.config.train.betas, weight_decay=self.config.train.weight_decay
             )
-            self.scheduler = StepLR(self.optimizer, step_size=self.config.step_size, gamma=self.config.gamma)
+            self.scheduler = StepLR(self.optimizer, step_size=self.config.train.step_size, gamma=self.config.train.gamma)
 
         except (RuntimeError, FileNotFoundError, ValueError) as e:
             print(f"Couldn't initialize model: {e}")
             self.model = None
 
-        self.dataset = SimpleDataset(capacity=self.config.dataset_capacity, logger=logger)
+        self.dataset = SimpleDataset(capacity=self.config.train.dataset_capacity)
         self.dataset.load(self.config.dataset_path, expand_to_fit=False)
 
-        self.fine_tuning_dataset = SimpleDataset(capacity=self.config.fine_tuning_dataset_capacity, logger=logger)
+        self.fine_tuning_dataset = SimpleDataset(capacity=self.config.train.fine_tuning_dataset_capacity)
 
         self.losses = {"h_loss": 1., "v_loss": 1., "loss": math.sqrt(2)}
 
@@ -76,18 +70,22 @@ class Landmarks2ScreenCoords:
         if self.model:
 
             self.model.set_calibration_mode(calibration_mode)
-
-            if calibration_mode:
-                dataset =  self.fine_tuning_dataset
-                print(f"Fine-tuning with dataset size: {len(dataset)}")
+            if self.config.model_type == "GazePCAMLP":
+                if calibration_mode:
+                    dataset =  self.fine_tuning_dataset
+                    print(f"Fine-tuning with dataset size: {len(dataset)}")
+                else:
+                    dataset = self.dataset
+                    print(f"Training with dataset size: {len(dataset)}")
+            elif self.config.model_type == "GazePCALSTM":
+                dataset  = SequenceDataset(self.dataset, window_size=7)
             else:
                 dataset = self.dataset
-                print(f"Training with dataset size: {len(dataset)}")
 
-            if len(dataset) >= self.config.dataset_min_size:
+            if len(dataset) >= self.config.train.dataset_min_size:
                 self.model.train()
 
-                loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=self.config.batch_size, shuffle=True)
+                loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=self.config.train.batch_size, shuffle=True)
 
 
                 if epochs <= 0:
@@ -101,6 +99,9 @@ class Landmarks2ScreenCoords:
                         for n_batches, (idx, x, y) in enumerate(loader):
                             x = x.to(self.device)
                             y = y.to(self.device)
+                            if self.config.model_type == "GazePCALSTM":
+                                # For LSTM, x is a sequence of landmarks
+                                pred, _ = self.model(x)
 
                             pred = self.model(x)
 
@@ -132,7 +133,7 @@ class Landmarks2ScreenCoords:
                         self.scheduler.step()
                         # logging.getLogger('app').info(f'Epoch {epoch + 1}: lr {self.scheduler.get_last_lr()}  h_loss: {self.losses["h_loss"]: .4f} v_loss: {self.losses["v_loss"]: .4f}')
 
-                        if (epoch % self.config.model_checkpoint_frequency) == 0:
+                        if (epoch % self.config.train.model_checkpoint_frequency) == 0:
                             self.save()
             self.model.eval()
 
@@ -166,8 +167,7 @@ class Landmarks2ScreenCoords:
             # Save dataset periodically
             if (self.dataset.idx % self.config.dataset_checkpoint_frequency) == 0:
                 self.dataset.save(self.config.dataset_path)
-                logging.getLogger('app').info(
-                    f"Saved dataset to {self.config.dataset_path}. Dataset size {len(self.dataset)}")
+                print(f"Saved dataset to {self.config.dataset_path}. Dataset size {len(self.dataset)}")
 
         # Predict the gaze coordinates
 
@@ -201,9 +201,9 @@ class Landmarks2ScreenCoords:
         from pkg.pca import do_pca as do_pca_
         try:
             pca = do_pca_()
-            logging.getLogger('app').info(f"PCA model saved with {pca.n_components_} components.")
+            print(f"PCA model saved with {pca.n_components_} components.")
         except Exception as e:
-            logging.getLogger('app').error(f"Error during PCA: {e}")
+            print(f"Error during PCA: {e}", file=sys.stderr)
             return {'status': 'failed', 'error': str(e)}
 
         return {'status': 'success', 'pca_num_components': pca.n_components_}
@@ -211,23 +211,28 @@ class Landmarks2ScreenCoords:
 
 if __name__ == '__main__':
     def main():
-        l2s = Landmarks2ScreenCoords(logging.getLogger())
-
-        print(f"Running model on device: {next(l2s.model.parameters()).device}")
-        #get the number of epochs and calibration mode from the arguments without argparse
+         #get the number of epochs and calibration mode from the arguments without argparse
         import sys
-        if len(sys.argv) > 1:
-            epochs = int(sys.argv[1])
+        config_file = sys.argv[1] if len(sys.argv) > 1 else "cache/config.json"
+        if len(sys.argv) > 2:
+            epochs = int(sys.argv[2])
         else:
             epochs = 1000
-        if len(sys.argv) > 2:
-            calibration_mode = sys.argv[2].lower() == 'true'
+        if len(sys.argv) > 3:
+            calibration_mode = sys.argv[3].lower() == 'true'
         else:
             calibration_mode = False
-        print(f"Training for {epochs} epochs, calibration mode: {calibration_mode}")
+
+        config = Config(config_file)
+        l2s = L2S(config)
+
+        log().info(f"Running model on device: {next(l2s.model.parameters()).device}")
+
+        log().info(f"Training for {epochs} epochs, calibration mode: {calibration_mode}")
 
         l2s.train(epochs, calibration_mode)
     try:
+
         main()
     except Exception as e:
-        logging.getLogger('app').exception(e)
+        log().exception(f"Error in main: {e}")

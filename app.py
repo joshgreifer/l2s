@@ -1,22 +1,24 @@
+import sys
+
 import torch
 import logging
 
 from flask import Flask, request
 
 from pkg.config import Config
-from pkg.l2s import Landmarks2ScreenCoords
+from pkg.l2s import L2S
 
 logging.getLogger('werkzeug').disabled = True
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger('app')
+# logging.basicConfig(level=logging.DEBUG)
+
 
 device = 'cpu' if torch.cuda.device_count() == 0 else 'cuda'
 
 
-l2coord = Landmarks2ScreenCoords(logger)
+l2coord = L2S("cache/config.json",)
 
-logger.info(f'Using device {device}')
+print(f'Using device {device}')
 app = Flask('l2s', static_url_path='/', static_folder='static')
 @app.route('/', methods=['GET'])
 def index():
@@ -79,7 +81,7 @@ def save_model():
         l2coord.save()
         return {'status': 'success'}
     except Exception as e:
-        app.logger.info(f'POST /api/gaze/save: {e}')
+        print(f'POST /api/gaze/save: {e}', file=sys.stderr)
         return {'status': 'failed'}
 
 

@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from pkg.config import Config
-from pkg.simple_dataset import SimpleDataset
+from pkg.dataset import SimpleDataset
 from sklearn.decomposition import PCA
 
 
@@ -81,8 +81,11 @@ def do_pca():
     return pca
 
 if __name__ == "__main__":
+    import sys
 
-    config = Config()
+    config_file = sys.argv[1] if len(sys.argv) > 1 else "cache/config.json"
+
+    config = Config(config_file)
     if config.pca_path is None:
         raise ValueError("PCA path is not set in the configuration.")
     # if pca already saved, just load it (to recreate, delete the file)

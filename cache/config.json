@@ -1,28 +1,26 @@
 {
   "device": "cpu",
-  "db_version": 200,
-  "version": 300,
-  "gat_heads": 4,
-  "hidden_channels": 64,
-  "num_resblocks": 5,
-  "dataset_capacity": 65536,
-  "fine_tuning_dataset_capacity": 4096,
-  "dataset_min_size": 2048,
-  "dataset_checkpoint_frequency": 2048,
-  "model_checkpoint_frequency": 100,
-  "batch_size": 256,
-  "lr": 1e-4,
-  "step_size": 50,
-  "gamma": 0.99,
-  "momentum": 0.5,
-  "pca_num": 32,
-  "nesterov": true,
-  "betas": [0.9, 0.999],
-  "weight_decay": 0,
-  "model_300": {
-    "model_type": "MLP",
+  "model_type": "GazePCAMLP",
+
+  "train": {
+    "dataset_capacity": 65536,
+    "fine_tuning_dataset_capacity": 4096,
+    "dataset_min_size": 2048,
+    "dataset_checkpoint_frequency": 2048,
+    "model_checkpoint_frequency": 100,
+    "batch_size": 256,
+    "lr": 1e-4,
+    "step_size": 50,
+    "gamma": 0.99,
+    "betas": [0.9, 0.999],
+    "weight_decay": 0
+  },
+  "model": {
     "hidden_channels": 256,
     "num_calibration_layers":  2,
-    "num_mlp_layers": 2
+    "num_mlp_layers": 2,
+    "pca_num": 32
   }
+
+
 }

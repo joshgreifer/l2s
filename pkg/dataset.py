@@ -1,11 +1,14 @@
 from typing import Tuple, List
+
+import numpy as np
 import torch.utils.data.dataset
+
+from pkg.util import log
 
 
 class SimpleDataset(torch.utils.data.Dataset):
 
-    def __init__(self, *, capacity=2048, logger=None):
-        self.logger = logger
+    def __init__(self, *, capacity=2048,):
         self.capacity = capacity
 
         self.idx = 0
@@ -17,6 +20,12 @@ class SimpleDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx: int) -> Tuple[int, Tuple[any, any]]:
         item: Tuple = self._db[idx]
 
+        assert item is not None, f"Item at {idx} is None"
+        (landmark, target) = item
+        assert isinstance(landmark, torch.FloatTensor), f"Item at {idx} is not a Tensor"
+        assert landmark.shape == (478, 3), f"Unexpected shape: {landmark.shape}"
+        assert isinstance(target, torch.FloatTensor), f"Item at {idx} target is not a Tensor"
+        assert target.shape == (2,), f"Unexpected target shape: {target.shape}"
         return (idx, *item)
 
     def __len__(self):
@@ -52,7 +61,6 @@ class SimpleDataset(torch.utils.data.Dataset):
             loaded_capacity = db["capacity"]
             loaded_db = db["_db"]
 
-            loaded_size = loaded_capacity if db["full"] else db["idx"]
             if self.capacity <= loaded_capacity:
                 # Set the capacity to that of the loaded dataset
                 if expand_to_fit:
@@ -69,9 +77,24 @@ class SimpleDataset(torch.utils.data.Dataset):
                 self._db[:loaded_capacity] = loaded_db
                 self.full = False
                 self.idx = loaded_capacity
-            print(f'Loaded database: Capacity {self.capacity}, full: {self.full}, idx : {self.idx}, len() = {len(self)}')
+            log().info(f'Loaded database: Capacity {self.capacity}, full: {self.full}, idx : {self.idx}, len() = {len(self)}')
         except RuntimeError as er:
-            self.logger.warning(er)
+            log().warning(er)
         except FileNotFoundError:
-            self.logger.warning(f'{filename} not found')
+            log().warning(f'{filename} not found')
 
+class SequenceDataset(torch.utils.data.Dataset):
+    def __init__(self, base_dataset, window_size):
+        self.base = base_dataset  # SimpleDataset of (landmarks, target)
+        self.window_size = window_size
+
+    def __len__(self):
+        return len(self.base) - self.window_size + 1
+
+    def __getitem__(self, idx):
+        # Gather T consecutive landmarks
+        X_seq = [self.base._db[idx + j][0] for j in range(self.window_size)]
+        X_seq = torch.stack([torch.tensor(x, dtype=torch.float32) for x in X_seq])  # [T, 32] (if PCA used)
+        # Target is the gaze for the last frame in window
+        y = self.base._db[idx + self.window_size - 1][1]
+        return X_seq, torch.tensor(y, dtype=torch.float32)

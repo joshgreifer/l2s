@@ -6,11 +6,10 @@ from pkg.config import Config
 from pkg.gaze_model import GazeModel
 
 
-class GazePCA(GazeModel):
+class GazePCAMLP(GazeModel):
     def __init__(self, config, *, logger=None, filename=None):
         super().__init__(config, logger, filename=filename)
 
-        assert (config.version == 300), "GazePCA is only compatible with config version 300"
         try:
             self.pca = joblib.load(config.pca_path)
             print(f"PCA model loaded from {config.pca_path}")
@@ -20,28 +19,28 @@ class GazePCA(GazeModel):
             raise RuntimeError(f"Error loading PCA model from {config.pca_path}: {e}")
 
         # Main MLP
-        mlp_layers = [nn.Linear(self.pca.n_components_, config.hidden_channels), nn.ReLU()]
-        for _ in range(config.num_mlp_layers):
-            mlp_layers.append(nn.Linear(config.hidden_channels, config.hidden_channels))
+        mlp_layers = [nn.Linear(self.pca.n_components_, config.model.hidden_channels), nn.ReLU()]
+        for _ in range(config.model.num_mlp_layers):
+            mlp_layers.append(nn.Linear(config.model.hidden_channels, config.model.hidden_channels))
             mlp_layers.append(nn.ReLU())
         self.mlp = nn.Sequential(*mlp_layers)
 
         # Calibration layers (initialized to identity)
         calibration_layers = []
-        for _ in range(config.num_calibration_layers):
-            fc = nn.Linear(config.hidden_channels, config.hidden_channels)
+        for _ in range(config.model.num_calibration_layers):
+            fc = nn.Linear(config.model.hidden_channels, config.model.hidden_channels)
             # with torch.no_grad():
-            #     fc.weight.copy_(torch.eye(config.hidden_channels))
+            #     fc.weight.copy_(torch.eye(config.model.hidden_channels))
             #     fc.bias.zero_()
             calibration_layers.append(fc)
             calibration_layers.append(nn.ReLU())
         self.calibration_layers = nn.Sequential(*calibration_layers)
 
         # Output projection
-        self.last_fc = nn.Linear(config.hidden_channels, 2)
+        self.last_fc = nn.Linear(config.model.hidden_channels, 2)
 
         # Gating layer for learned skip connection (per-output blending)
-        self.gate_layer = nn.Linear(config.hidden_channels, 2)  # Output shape: [B, 2]
+        self.gate_layer = nn.Linear(config.model.hidden_channels, 2)  # Output shape: [B, 2]
 
         self.last_act = nn.Tanh()
         self.config = config
@@ -85,7 +84,7 @@ class GazePCA(GazeModel):
 if __name__ == '__main__':
     landmarks = torch.randn(478, 3)
     landmarks = torch.unsqueeze(landmarks, 0)
-    model = GazePCA(Config())
+    model = GazePCAMLP(Config())
     model.eval()
     pred = model(landmarks)
     print(pred.shape)

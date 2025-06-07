@@ -280,7 +280,8 @@ export class GazeDetector extends EventEmitter {
                     if (++frame_count >= num_frames_for_frame_rate_measurement) {
                         frame_count = 0;
                         const now = window.performance.now();
-                        this_.frame_rate = (now - time_at_last_frame_rate_measurement) * num_frames_for_frame_rate_measurement / 1000.0;
+                        this_.frame_rate = 1000.0 * num_frames_for_frame_rate_measurement / (now - time_at_last_frame_rate_measurement);
+
                         time_at_last_frame_rate_measurement = now;
                     }
                 }
