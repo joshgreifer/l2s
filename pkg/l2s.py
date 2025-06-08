@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from pkg.config import Config
 from pkg.dataset import SequenceDataset, SimpleDataset
+from pkg.model_pca_lstm import GazePCALSTM
 
 from pkg.model_pca_mlp import GazePCAMLP
 from pkg.util import log
@@ -38,10 +39,12 @@ class L2S:
 
             if self.config.model_type == 'GazePCAMLP':
                 model = GazePCAMLP
+            elif self.config.model_type == 'GazePCALSTM':
+                model = GazePCALSTM
             else:
                 raise ValueError(f"Unsupported model type: {self.config.model_type}")
 
-            self.model = model(self.config,  filename=self.config.checkpoint).to(self.device)
+            self.model = model(self.config).to(self.device)
 
             self.optimizer = torch.optim.Adam(
                 filter(lambda p: p.requires_grad, self.model.parameters()),
@@ -70,17 +73,16 @@ class L2S:
         if self.model:
 
             self.model.set_calibration_mode(calibration_mode)
-            if self.config.model_type == "GazePCAMLP":
-                if calibration_mode:
-                    dataset =  self.fine_tuning_dataset
-                    print(f"Fine-tuning with dataset size: {len(dataset)}")
-                else:
-                    dataset = self.dataset
-                    print(f"Training with dataset size: {len(dataset)}")
-            elif self.config.model_type == "GazePCALSTM":
-                dataset  = SequenceDataset(self.dataset, window_size=7)
+
+
+            if calibration_mode:
+                dataset = self.fine_tuning_dataset
             else:
                 dataset = self.dataset
+            if self.config.model_type == "GazePCALSTM":
+                dataset = SequenceDataset(dataset, window_size=7)
+
+            print(f"Training with dataset size: {len(dataset)}")
 
             if len(dataset) >= self.config.train.dataset_min_size:
                 self.model.train()
@@ -96,12 +98,9 @@ class L2S:
                         losses = {"h_loss": 0., "v_loss": 0., "loss": 0.}
                         n_batches = 0
 
-                        for n_batches, (idx, x, y) in enumerate(loader):
+                        for n_batches, (x, y) in enumerate(loader):
                             x = x.to(self.device)
                             y = y.to(self.device)
-                            if self.config.model_type == "GazePCALSTM":
-                                # For LSTM, x is a sequence of landmarks
-                                pred, _ = self.model(x)
 
                             pred = self.model(x)
 
@@ -121,9 +120,9 @@ class L2S:
 
 
                         # Compute average losses for the epoch
-                        losses["loss"] /= n_batches + 1
-                        losses["h_loss"] /= n_batches + 1
-                        losses["v_loss"] /= n_batches + 1
+                        losses["loss"] /= n_batches
+                        losses["h_loss"] /= n_batches
+                        losses["v_loss"] /= n_batches
                         self.losses = losses
 
                         # Update the progress bar at the end of the epoch
@@ -165,7 +164,7 @@ class L2S:
             self.dataset.add_item(landmarks, label_as_tensor)
             self.fine_tuning_dataset.add_item(landmarks, label_as_tensor)
             # Save dataset periodically
-            if (self.dataset.idx % self.config.dataset_checkpoint_frequency) == 0:
+            if (self.dataset.idx % self.config.train.dataset_checkpoint_frequency) == 0:
                 self.dataset.save(self.config.dataset_path)
                 print(f"Saved dataset to {self.config.dataset_path}. Dataset size {len(self.dataset)}")
 
@@ -174,7 +173,11 @@ class L2S:
         if self.model is not None:
             with torch.no_grad():
                 self.model.eval()
-                pred = self.model(torch.unsqueeze(landmarks, 0).to(self.device))
+                if self.config.model_type == "GazePCALSTM":
+                    #  unsqueeze once for sequence dimension, and again for batch dimension
+                    pred = self.model(landmarks.view(1, 1, *landmarks.shape).to(self.device), streaming=True)
+                else:
+                    pred = self.model(torch.unsqueeze(landmarks, 0).to(self.device))
 
                 pred = torch.squeeze(pred)
                 gaze_location = pred.cpu().detach().numpy()

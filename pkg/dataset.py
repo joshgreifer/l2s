@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import Tuple, List, Any
 
 import numpy as np
 import torch.utils.data.dataset
@@ -13,27 +13,23 @@ class SimpleDataset(torch.utils.data.Dataset):
 
         self.idx = 0
 
-        # Dataset items are a dict
-        self._db: List[Tuple[any, any]] = [(None, None)] * capacity
+        # Dataset
+        self._db: list[tuple[any, any]] = [(None, None)] * capacity  # type: ignore
         self.full = False
 
-    def __getitem__(self, idx: int) -> Tuple[int, Tuple[any, any]]:
-        item: Tuple = self._db[idx]
+    def __getitem__(self, idx: int) -> Tuple[any, any]:
 
-        assert item is not None, f"Item at {idx} is None"
-        (landmark, target) = item
-        assert isinstance(landmark, torch.FloatTensor), f"Item at {idx} is not a Tensor"
-        assert landmark.shape == (478, 3), f"Unexpected shape: {landmark.shape}"
-        assert isinstance(target, torch.FloatTensor), f"Item at {idx} target is not a Tensor"
-        assert target.shape == (2,), f"Unexpected target shape: {target.shape}"
-        return (idx, *item)
+        (landmark, target) = self._db[idx]  # type: ignore
+        # print type of landmark, target
+
+        return landmark, target
 
     def __len__(self):
         return self.capacity if self.full else self.idx
 
     def add_item(self, item: any, target: any):
 
-        self._db[self.idx] = (item, target)
+        self._db[self.idx] = (item, target)  # type: ignore
         self.idx = self.idx + 1
         if self.idx == self.capacity:
             self.full = True
@@ -85,16 +81,25 @@ class SimpleDataset(torch.utils.data.Dataset):
 
 class SequenceDataset(torch.utils.data.Dataset):
     def __init__(self, base_dataset, window_size):
-        self.base = base_dataset  # SimpleDataset of (landmarks, target)
+        assert isinstance(base_dataset, SimpleDataset), "base_dataset must be an instance of SimpleDataset"
+        self.base: SimpleDataset = base_dataset  # SimpleDataset
         self.window_size = window_size
 
     def __len__(self):
         return len(self.base) - self.window_size + 1
 
-    def __getitem__(self, idx):
-        # Gather T consecutive landmarks
-        X_seq = [self.base._db[idx + j][0] for j in range(self.window_size)]
-        X_seq = torch.stack([torch.tensor(x, dtype=torch.float32) for x in X_seq])  # [T, 32] (if PCA used)
-        # Target is the gaze for the last frame in window
-        y = self.base._db[idx + self.window_size - 1][1]
-        return X_seq, torch.tensor(y, dtype=torch.float32)
+    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor]:
+        # Get window_size consecutive samples from the base dataset
+        landmark_seq = []
+        for j in range(self.window_size):
+            landmark, _ = self.base[idx + j]  # base.__getitem__ returns (landmark, target)
+            landmark_seq.append(landmark)
+        landmark_seq = torch.stack(landmark_seq)  # shape: [window_size, 478, 3]
+        # Target is gaze for the last frame in window
+        _, target = self.base[idx + self.window_size - 1]
+
+        assert isinstance(landmark_seq, torch.Tensor), "landmark_seq must be a torch.Tensor"
+        assert isinstance(target, torch.Tensor), "target must be a torch.Tensor"
+        assert landmark_seq.shape == (self.window_size, 478, 3), f"landmark_seq shape mismatch: {landmark_seq.shape}"
+        assert target.shape == (2,), f"target shape mismatch: {target.shape}"
+        return landmark_seq, target

@@ -12,11 +12,7 @@
     "sourceMap": true,
     "inlineSources": true,
     "baseUrl": ".",
-    "types": [
-      "webpack-env"
-    ]
+    "types": []
   },
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

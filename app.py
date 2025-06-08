@@ -16,7 +16,7 @@ logging.getLogger('werkzeug').disabled = True
 device = 'cpu' if torch.cuda.device_count() == 0 else 'cuda'
 
 
-l2coord = L2S("cache/config.json",)
+l2coord = L2S(Config("cache/config.json"))
 
 print(f'Using device {device}')
 app = Flask('l2s', static_url_path='/', static_folder='static')

@@ -7,8 +7,8 @@ from pkg.gaze_model import GazeModel
 
 
 class GazePCAMLP(GazeModel):
-    def __init__(self, config, *, logger=None, filename=None):
-        super().__init__(config, logger, filename=filename)
+    def __init__(self, config):
+        super().__init__(config)
 
         try:
             self.pca = joblib.load(config.pca_path)
@@ -45,8 +45,8 @@ class GazePCAMLP(GazeModel):
         self.last_act = nn.Tanh()
         self.config = config
 
-        if filename is not None:
-            self.load(filename)
+
+        self.load(config.checkpoint)
 
     def set_calibration_mode(self, mode: bool):
         """

@@ -5,11 +5,10 @@ from pkg.util import log
 
 
 class GazeModel(torch.nn.Module):
-    def __init__(self, config: Config, logger=None, filename=None):
+    def __init__(self, config: Config):
         super(GazeModel, self).__init__()
         self.config = config
 
-        self.filename = filename
 
     def save(self, filename):
         torch.save(self.state_dict(), filename)
