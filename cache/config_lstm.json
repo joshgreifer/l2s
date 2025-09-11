@@ -3,17 +3,18 @@
   "model_type": "GazePCALSTM",
 
   "train": {
-    "dataset_capacity": 65536,
-    "fine_tuning_dataset_capacity": 4096,
-    "dataset_min_size": 2048,
-    "dataset_checkpoint_frequency": 2048,
+    "dataset_capacity": 16384,
+    "fine_tuning_dataset_capacity": 2048,
+    "dataset_min_size": 1024,
+    "dataset_checkpoint_frequency": 1024,
     "model_checkpoint_frequency": 100,
     "batch_size": 256,
     "lr": 1e-4,
     "step_size": 50,
     "gamma": 0.99,
     "betas": [0.9, 0.999],
-    "weight_decay": 0
+    "weight_decay": 0,
+    "sequence_length": 7
   },
   "model": {
     "hidden_dim": 64,

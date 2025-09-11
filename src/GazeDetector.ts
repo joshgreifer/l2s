@@ -2,12 +2,12 @@ import {post_landmarks} from "./apiService";
 import EventEmitter from "eventemitter3";
 
 import {LandMarkDetector} from "./LandMarkDetector";
-import {BoundingBox, Detection, FaceLandmarker} from "@mediapipe/tasks-vision";
+import {FaceLandmarker} from "@mediapipe/tasks-vision";
 import {ContinuousTrainer} from "./ContinuousTrainer";
 import {GazeElement} from "./GazeElement";
+import {Coord, PixelCoord} from "./util/Coords";
 
-export type Coord = { x: number; y: number; }
-export type PixelCoord = number[]
+
 
 export interface iGazeDetectorTrainResult {
     h_loss: number;
@@ -25,14 +25,7 @@ export interface iGazeDetectorResult {
 }
 
 
-const constraints = {
-    audio: false,
-    video:
-        {
-            width: {min: 640, ideal: 720, max: 1280},
-            height: {min: 480, ideal: 540, max: 1280}
-        }
-};
+
 
 // https://github.com/webrtcHacks/tfObjWebrtc/blob/master/static/objDetect.js
 export class GazeDetector extends EventEmitter {
@@ -46,7 +39,7 @@ export class GazeDetector extends EventEmitter {
     training_promise: Promise<void> | undefined = undefined;
     private containerDiv: HTMLDivElement;
 
-    static toScreenCoords(point: Coord | PixelCoord): Coord {
+    static ModelToScreenCoords(point: Coord | PixelCoord): Coord {
         let x, y;
 
         const isPixelCoord: boolean = Array.isArray(point)
@@ -66,7 +59,7 @@ export class GazeDetector extends EventEmitter {
         return {x: Math.round(x), y: Math.round(y)}
     }
 
-    static fromScreenCoords(point: Coord | undefined): Coord | undefined {
+    static screenToModelCoords(point: Coord | undefined): Coord | undefined {
         if (!point)
             return undefined;
         let [x, y] = [point.x, point.y];
@@ -131,7 +124,15 @@ export class GazeDetector extends EventEmitter {
     public async init() {
         const this_ = this;
         return new Promise((resolve, reject) => {
-            navigator.mediaDevices.getUserMedia(constraints)
+            navigator.mediaDevices.getUserMedia({
+                audio: false,
+                video:
+                    {
+                        width: {min: 640, ideal: 640, max: 640},
+                        height: {min: 480, ideal: 480, max: 480},
+                        frameRate: {ideal: 30, max: 30}
+                    }
+            })
                 .then(stream => {
                     this_.videoCaptureElement.srcObject = stream;
                     console.log("Got local user video");
@@ -159,7 +160,7 @@ export class GazeDetector extends EventEmitter {
                             this_.startGazeDetection();
                         }
                     };
-                    this_.once('GazeDetectionComplete', resolve);
+                    this_.once('ProcessedFrame', resolve);
 
                 })
                 .catch(err => {
@@ -223,6 +224,17 @@ export class GazeDetector extends EventEmitter {
         const num_frames_for_frame_rate_measurement = 10;
         let time_at_last_frame_rate_measurement = window.performance.now();
 
+        const processFrameRAW = async () => {
+            if (++frame_count >= num_frames_for_frame_rate_measurement) {
+                frame_count = 0;
+                const now = window.performance.now();
+                this_.frame_rate = 1000.0 * num_frames_for_frame_rate_measurement / (now - time_at_last_frame_rate_measurement);
+
+                time_at_last_frame_rate_measurement = now;
+            }
+            this_.emit('ProcessedFrame');
+            this.videoCaptureElement.requestVideoFrameCallback(processFrame);
+        }
 
         const processFrame = async () => {
             if (this_.isPlaying) {
@@ -256,35 +268,30 @@ export class GazeDetector extends EventEmitter {
                         }
                     }
                     const landmarks_as_array = landmarks.map((p) => [p.x, p.y, p.z]);
-                    features = await post_landmarks(landmarks_as_array, GazeDetector.fromScreenCoords(this_.target_pos));
+                    features = await post_landmarks(landmarks_as_array, GazeDetector.screenToModelCoords(this_.target_pos));
 
-                    // features = await post_landmark_features(landmarkFeatures, GazeDetector.fromScreenCoords(this_.target_pos));
-                    // if (features) {
-                    //     for (let i = 0; i < features.landmarks.length; ++i) {
-                    //         features.landmarks[i][0] *= overlayCanvas.width;
-                    //         features.landmarks[i][1] *= overlayCanvas.height;
-                    //     }
-                    // }
                 }
 
 
                 if (features !== undefined) {
 
                     this_.training_loss = features.losses.loss;
-                    features.gaze = GazeDetector.toScreenCoords(features.gaze)
+                    features.gaze = GazeDetector.ModelToScreenCoords(features.gaze)
                     this_.emit('GazeDetectionComplete', features);
 
 
                     // overlayCtx.drawImage(v, 0, 0, v.videoWidth, v.videoHeight, 0, 0, uploadWidth, uploadWidth * (v.videoHeight / v.videoWidth));
 
-                    if (++frame_count >= num_frames_for_frame_rate_measurement) {
-                        frame_count = 0;
-                        const now = window.performance.now();
-                        this_.frame_rate = 1000.0 * num_frames_for_frame_rate_measurement / (now - time_at_last_frame_rate_measurement);
 
-                        time_at_last_frame_rate_measurement = now;
-                    }
                 }
+                if (++frame_count >= num_frames_for_frame_rate_measurement) {
+                    frame_count = 0;
+                    const now = window.performance.now();
+                    this_.frame_rate = 1000.0 * num_frames_for_frame_rate_measurement / (now - time_at_last_frame_rate_measurement);
+
+                    time_at_last_frame_rate_measurement = now;
+                }
+                this_.emit('ProcessedFrame');
                 this.videoCaptureElement.requestVideoFrameCallback(processFrame);
             }
         }
@@ -355,6 +362,7 @@ export class GazeDetector extends EventEmitter {
             // Don't allow the target ellipse to be too big (if the loss is big) or too small
             rx = rx.clamp(15, 100);
             ry = ry.clamp(15, 100);
+
 
             targetElement.setRadius(rx, ry);
             targetElement.setCaption(`<div>${features.data_index}</div>`)

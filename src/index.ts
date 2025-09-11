@@ -1,14 +1,16 @@
 
-// For diagnostics, export Luis response
 
+import {GazeElement} from "./GazeElement";
 import {Subject} from "./Subject";
 import {Session} from "./Session";
 
-
+import "./util/index";
 import {TabNavigator} from "./util/nav";
 import {apiAvailable} from "./apiService";
 import {Fullscreen} from "./util/util";
+import * as util from "node:util";
 
+customElements.define('gaze-element', GazeElement);
 // status fields and start button in UI
 
 let statusDiv: HTMLDivElement;

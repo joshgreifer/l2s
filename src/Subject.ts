@@ -88,7 +88,7 @@ export class Subject extends EventEmitter {
 
         const vidcap_overlay = <HTMLDivElement>document.getElementById('vidCapOverlay');
 
-        this.gazeDetector.on('GazeDetectionComplete', (features: iGazeDetectorResult) => {
+        this.gazeDetector.on('ProcessedFrame', () => {
                 // @ts-ignore
                 vidcap_overlay.innerText = `${this.gazeDetector.FrameRate.toFixed(0)} FPS`
               }

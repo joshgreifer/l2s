@@ -8,7 +8,7 @@
     HTML/CSS  methods.
     Instead, its properties should be used.
  */
-import {Coord, PixelCoord} from "./GazeDetector";
+import {Coord, PixelCoord} from "./util/Coords";
 
 export class GazeElement extends HTMLElement {
 
@@ -88,4 +88,4 @@ export class GazeElement extends HTMLElement {
     }
 }
 
-customElements.define('gaze-element', GazeElement);
+// customElements.define('gaze-element', GazeElement);

@@ -12,7 +12,7 @@ class Config(AttrDict):
         super().__init__(json.load(open(filename)))
 
         # Checkpoint to load model from
-        self.checkpoint = f'cache/checkpoints/model_{self.model_type}.pth'
+        self.checkpoint = f'cache/checkpoints/model_{self.model_type}.pt'
         self.dataset_path = f'cache/landmarks_db.pth'
 
         if hasattr(self.model, 'pca_num'):

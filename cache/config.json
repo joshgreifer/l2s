@@ -3,7 +3,7 @@
   "model_type": "GazePCAMLP",
 
   "train": {
-    "dataset_capacity": 65536,
+    "dataset_capacity": 4096,
     "fine_tuning_dataset_capacity": 4096,
     "dataset_min_size": 2048,
     "dataset_checkpoint_frequency": 2048,

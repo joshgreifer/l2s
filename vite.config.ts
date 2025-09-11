@@ -3,14 +3,14 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 import path from 'path';
 
 export default defineConfig({
-  root: 'static',
+  root: 'src',
   build: {
     outDir: '../dist/static',
     emptyOutDir: true,
     sourcemap: true,
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'static/index.html')
+        main: path.resolve(__dirname, 'src/index.html')
       },
       output: {
         entryFileNames: 'index.js'
@@ -42,8 +42,12 @@ export default defineConfig({
           dest: '..'
         },
         {
-          src: '*',
-          dest: '.'
+          src: 'index.html',
+          dest: '.' // copies src/index.html to dist/static/
+        },
+        {
+          src: '../static/*',
+          dest: '.' // copies all files from static to dist/static/
         }
       ]
     })

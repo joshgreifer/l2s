@@ -8,7 +8,7 @@ class GazeModel(torch.nn.Module):
     def __init__(self, config: Config):
         super(GazeModel, self).__init__()
         self.config = config
-
+        log().info(f'Created model {self.config.model_type} on device {self.config.device}.')
 
     def save(self, filename):
         torch.save(self.state_dict(), filename)
@@ -20,6 +20,7 @@ class GazeModel(torch.nn.Module):
             log().warning(f'{filename} not found, using random weights.')
         except RuntimeError as err:
             log().warning(f'{filename} model is incompatible with this version, using random weights. {err}')
+        log().info(f'Loaded model from {filename}.')
 
     def set_calibration_mode(self, mode: bool):
         """

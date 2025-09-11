@@ -5,6 +5,7 @@ import sys
 import numpy as np
 import torch
 import torch.utils.data
+from torch import TensorType
 from torch.optim.lr_scheduler import StepLR
 from tqdm import tqdm
 
@@ -65,76 +66,84 @@ class L2S:
 
 
 
-    def save(self):
+    def save(self, epoch):
         if self.model:
-            self.model.save(self.config.checkpoint)
+            save_filename = f"{self.config.checkpoint}"
+            self.model.save(save_filename)
+            log().info(f"\nModel saved to {save_filename}.")
 
-    def train(self, epochs, calibration_mode=False):
-        if self.model:
-
-            self.model.set_calibration_mode(calibration_mode)
-
-
-            if calibration_mode:
-                dataset = self.fine_tuning_dataset
-            else:
-                dataset = self.dataset
-            if self.config.model_type == "GazePCALSTM":
-                dataset = SequenceDataset(dataset, window_size=7)
-
-            print(f"Training with dataset size: {len(dataset)}")
-
-            if len(dataset) >= self.config.train.dataset_min_size:
-                self.model.train()
-
-                loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=self.config.train.batch_size, shuffle=True)
+    def train(self, epochs, streaming_mode=False):
 
 
-                if epochs <= 0:
-                    epochs = 1 + len(self.dataset) // 100
-
-                with tqdm(total=epochs, desc="Training Progress") as pbar:
-                    for epoch in range(epochs):
-                        losses = {"h_loss": 0., "v_loss": 0., "loss": 0.}
-                        n_batches = 0
-
-                        for n_batches, (x, y) in enumerate(loader):
-                            x = x.to(self.device)
-                            y = y.to(self.device)
-
-                            pred = self.model(x)
+        self.model.set_calibration_mode(streaming_mode)
 
 
-                            dists = torch.norm(pred - y, dim=1)
-                            diff = pred - y
-                            h_dist = diff[:, 0].abs().mean()
-                            v_dist = diff[:, 1].abs().mean()
-                            loss = dists.mean()
+        if streaming_mode:
+            dataset = self.fine_tuning_dataset
+        else:
+            dataset = self.dataset
+        if len(dataset) == 0:
+            log().warn("Dataset is empty, cannot train.")
+            return self.losses
 
-                            losses["loss"] += loss.cpu().item()
-                            losses["h_loss"] += h_dist.cpu().item()
-                            losses["v_loss"] += v_dist.cpu().item()
-                            self.optimizer.zero_grad()
-                            loss.backward()
-                            self.optimizer.step()
+        if self.config.model_type == "GazePCALSTM":
+            dataset = SequenceDataset(dataset, window_size=1 if streaming_mode else self.config.train.sequence_length)
+
+        log().info(f"Training with dataset size: {len(dataset)}")
+
+        if len(dataset) >= self.config.train.dataset_min_size:
+            self.model.train()
+
+            loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=1 if streaming_mode else self.config.train.batch_size, shuffle=not streaming_mode)
 
 
-                        # Compute average losses for the epoch
-                        losses["loss"] /= n_batches
-                        losses["h_loss"] /= n_batches
-                        losses["v_loss"] /= n_batches
-                        self.losses = losses
+            if epochs <= 0:
+                epochs = 1 + len(self.dataset) // 100
 
-                        # Update the progress bar at the end of the epoch
-                        pbar.set_postfix(h_loss=self.losses["h_loss"], v_loss=self.losses["v_loss"], loss=self.losses["loss"])
-                        pbar.update(1)
+            with tqdm(total=epochs, desc="Training Progress") as pbar:
+                for epoch in range(epochs):
+                    losses = {"h_loss": 0., "v_loss": 0., "loss": 0.}
+                    n_batches = 0
 
-                        self.scheduler.step()
-                        # logging.getLogger('app').info(f'Epoch {epoch + 1}: lr {self.scheduler.get_last_lr()}  h_loss: {self.losses["h_loss"]: .4f} v_loss: {self.losses["v_loss"]: .4f}')
+                    x: TensorType
+                    y: TensorType
+                    for n_batches, (x, y) in enumerate(loader):
+                        x = x.to(self.device)
+                        y = y.to(self.device)
 
-                        if (epoch % self.config.train.model_checkpoint_frequency) == 0:
-                            self.save()
-            self.model.eval()
+                        pred = self.model(x, streaming=streaming_mode)
+
+
+                        dists = torch.norm(pred - y, dim=1)
+                        diff = pred - y
+                        h_dist = diff[:, 0].abs().mean()
+                        v_dist = diff[:, 1].abs().mean()
+                        loss = dists.mean()
+
+                        losses["loss"] += loss.cpu().item()
+                        losses["h_loss"] += h_dist.cpu().item()
+                        losses["v_loss"] += v_dist.cpu().item()
+                        self.optimizer.zero_grad()
+                        loss.backward()
+                        self.optimizer.step()
+
+
+                    # Compute average losses for the epoch
+                    losses["loss"] /= n_batches
+                    losses["h_loss"] /= n_batches
+                    losses["v_loss"] /= n_batches
+                    self.losses = losses
+
+                    # Update the progress bar at the end of the epoch
+                    pbar.set_postfix(h_loss=self.losses["h_loss"], v_loss=self.losses["v_loss"], loss=self.losses["loss"])
+                    pbar.update(1)
+
+                    self.scheduler.step()
+                    # logging.getLogger('app').info(f'Epoch {epoch + 1}: lr {self.scheduler.get_last_lr()}  h_loss: {self.losses["h_loss"]: .4f} v_loss: {self.losses["v_loss"]: .4f}')
+
+                    if (epoch % self.config.train.model_checkpoint_frequency) == 0:
+                        self.save(epoch)
+        self.model.eval()
 
         return self.losses
 
@@ -166,7 +175,7 @@ class L2S:
             # Save dataset periodically
             if (self.dataset.idx % self.config.train.dataset_checkpoint_frequency) == 0:
                 self.dataset.save(self.config.dataset_path)
-                print(f"Saved dataset to {self.config.dataset_path}. Dataset size {len(self.dataset)}")
+                log().info(f"Saved dataset to {self.config.dataset_path}. Dataset size {len(self.dataset)}")
 
         # Predict the gaze coordinates
 
@@ -195,21 +204,6 @@ class L2S:
             'landmarks': [],  # landmarks_for_display,
             'losses': self.losses
         }
-
-    def do_pca(self):
-        """
-        Do PCA on the dataset and save the model.
-        :return: PCA model
-        """
-        from pkg.pca import do_pca as do_pca_
-        try:
-            pca = do_pca_()
-            print(f"PCA model saved with {pca.n_components_} components.")
-        except Exception as e:
-            print(f"Error during PCA: {e}", file=sys.stderr)
-            return {'status': 'failed', 'error': str(e)}
-
-        return {'status': 'success', 'pca_num_components': pca.n_components_}
 
 
 if __name__ == '__main__':

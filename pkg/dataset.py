@@ -53,6 +53,8 @@ class SimpleDataset(torch.utils.data.Dataset):
         :param expand_to_fit: If True, expand the dataset to fit the loaded data, otherwise fill up to the current capacity.
         """
         try:
+            log().info(f'Loading database from {filename}...')
+
             db = torch.load(filename)
             loaded_capacity = db["capacity"]
             loaded_db = db["_db"]
@@ -73,7 +75,7 @@ class SimpleDataset(torch.utils.data.Dataset):
                 self._db[:loaded_capacity] = loaded_db
                 self.full = False
                 self.idx = loaded_capacity
-            log().info(f'Loaded database: Capacity {self.capacity}, full: {self.full}, idx : {self.idx}, len() = {len(self)}')
+            log().info(f'...Loaded.  Capacity {self.capacity}, full: {self.full},  len() = {len(self)}')
         except RuntimeError as er:
             log().warning(er)
         except FileNotFoundError:

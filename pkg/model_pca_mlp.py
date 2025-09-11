@@ -4,19 +4,16 @@ import joblib
 
 from pkg.config import Config
 from pkg.gaze_model import GazeModel
+from pkg.pca import LandMarkPCA
 
 
 class GazePCAMLP(GazeModel):
     def __init__(self, config):
         super().__init__(config)
 
-        try:
-            self.pca = joblib.load(config.pca_path)
-            print(f"PCA model loaded from {config.pca_path}")
-        except FileNotFoundError:
-            raise FileNotFoundError(f"PCA model not found at {config.pca_path}. Please ensure the PCA model is created and saved before using GazePCA.")
-        except Exception as e:
-            raise RuntimeError(f"Error loading PCA model from {config.pca_path}: {e}")
+
+        self.pca = LandMarkPCA(config).pca
+
 
         # Main MLP
         mlp_layers = [nn.Linear(self.pca.n_components_, config.model.hidden_channels), nn.ReLU()]
@@ -54,7 +51,7 @@ class GazePCAMLP(GazeModel):
         """
         pass
 
-    def forward(self, x):
+    def forward(self, x, streaming=False):
         batch_size, num_nodes, in_channels = x.shape
         assert num_nodes == 478, f"Expected 478 nodes, got {num_nodes}"
         assert in_channels == 3, f"Expected 3 channels, got {in_channels}"
