@@ -41,6 +41,9 @@ def bake_pca_into_first_linear(model: GazePCAMLP) -> GazePCAMLP:
 
         # Swap it in
         model.mlp[0] = new_first
+        # pkg/tools/bake_pca.py (inside bake_pca_into_first_linear, after swapping layer)
+        model.pca = None
+        model.pca_baked = True  # <— add this flag
 
         # Make runtime PCA a no-op (keeps the rest of forward untouched)
         class _IdentityPCA:

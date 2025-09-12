@@ -51,30 +51,39 @@ class GazePCAMLP(GazeModel):
         """
         pass
 
+    # pkg/model_pca_mlp.py
     def forward(self, x, streaming=False):
         batch_size, num_nodes, in_channels = x.shape
-        assert num_nodes == 478, f"Expected 478 nodes, got {num_nodes}"
-        assert in_channels == 3, f"Expected 3 channels, got {in_channels}"
+
+        # Avoid Python booleans during ONNX export
+        if not torch.onnx.is_in_onnx_export():
+            assert num_nodes == 478, f"Expected 478 nodes, got {num_nodes}"
+            assert in_channels == 3, f"Expected 3 channels, got {in_channels}"
+
         x = x.view(batch_size, -1)  # [B, 478*3]
-        x_pca = self.pca.transform(x.cpu().numpy())  # [B, n_components]
-        x_pca = torch.tensor(x_pca, dtype=torch.float32, device=x.device)
+
+        # If PCA was baked, skip NumPy path entirely
+        if getattr(self, "pca_baked", False) or (self.pca is None):
+            feats = x  # already raw features; first Linear now expects raw
+        else:
+            # Legacy (unbaked) path — NumPy ok at runtime, but not used in export
+            feats_np = self.pca.transform(x.cpu().numpy())
+            feats = torch.tensor(feats_np, dtype=torch.float32, device=x.device)
 
         # Main MLP feature extraction
-        h = self.mlp(x_pca)  # [B, hidden_channels]
-        # Calibration path
-        h_calib = self.calibration_layers(h)  # [B, hidden_channels]
+        h = self.mlp(feats)
+        h_calib = self.calibration_layers(h)
 
-        # Project both to output
-        y_main = self.last_fc(h)         # [B, 2]
-        y_calib = self.last_fc(h_calib)  # [B, 2]
+        y_main = self.last_fc(h)
+        y_calib = self.last_fc(h_calib)
 
-        # Compute learnable gate for blending
-        gate = torch.sigmoid(self.gate_layer(h))  # [B, 2], each in (0, 1)
-
-        # Blend outputs
+        gate = torch.sigmoid(self.gate_layer(h))
         y = gate * y_calib + (1 - gate) * y_main
-        y = self.last_act(y)  # [-1, 1] screen coords
+        y = self.last_act(y)  # [-1, 1], shape [B, 2]
 
+        # Keep batch-dim stable during export
+        if torch.onnx.is_in_onnx_export():
+            return y
         return torch.squeeze(y)
 
 
