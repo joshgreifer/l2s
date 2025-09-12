@@ -1,5 +1,5 @@
 {
-  "device": "cpu",
+  "device": "cuda",
   "model_type": "GazePCAMLP",
 
   "train": {

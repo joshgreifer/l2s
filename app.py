@@ -31,12 +31,11 @@ except FileNotFoundError:
     config_file = default_config
 
 
-device = 'cpu' if torch.cuda.device_count() == 0 else 'cuda'
 
 
 l2coord = L2S(Config(config_file))
 
-print(f'Using device {device}')
+
 
 app = Flask(__name__, static_url_path='/', static_folder='static')
 @app.route('/', methods=['GET'])
@@ -74,24 +73,12 @@ def config():
     return {'config': Config().__dict__}
 
 
-@app.route('/api/gaze/landmarks', methods=['POST'])
-def landmarks_():
+@app.route('/api/gaze/data', methods=['POST'])
+def data_():
 
-    landmarks_and_target = request.json
+    batch = request.json
 
-    landmarks = landmarks_and_target["landmarks"]
-    target = landmarks_and_target["target"]
-
-    if target["target_x"] != "undefined":
-        target = [float(target["target_x"]), float(target["target_y"])]
-    else:
-        target = None
-
-    # Send to landmark model
-    # print("---------------------------------------------------")
-    # print(landmarks)
-    # print("---------------------------------------------------")
-    return l2coord.predict(landmarks, target)
+    return l2coord.add_data(batch)
 
 
 @app.route('/api/gaze/save', methods=['POST', 'HEAD', 'GET'])
@@ -106,4 +93,4 @@ def save_model():
 
 if __name__ == '__main__':
     # app.run(host='0.0.0.0', port=5000, ssl_context=('cache/cert.pem', 'cache/key.pem'), debug=True)
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

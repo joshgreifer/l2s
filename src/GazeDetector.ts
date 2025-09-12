@@ -1,4 +1,4 @@
-import {post_landmarks} from "./apiService";
+
 import EventEmitter from "eventemitter3";
 
 import {LandMarkDetector} from "./LandMarkDetector";
@@ -6,6 +6,7 @@ import {FaceLandmarker} from "@mediapipe/tasks-vision";
 import {ContinuousTrainer} from "./ContinuousTrainer";
 import {GazeElement} from "./GazeElement";
 import {Coord, PixelCoord} from "./util/Coords";
+import {post_data} from "./apiService";
 
 
 
@@ -15,16 +16,17 @@ export interface iGazeDetectorTrainResult {
     loss: number;
 }
 
-export interface iGazeDetectorResult {
+export interface iGazeDetectorAddDataResult {
     data_index: number;
-    faces: number;
-    eyes: number;
-    gaze: Coord;
-    landmarks: PixelCoord[];
+    gaze: Coord; // Predicted gaze of last landmark in batch in screen coordinates
     losses: iGazeDetectorTrainResult;
 }
 
 
+export type BatchItem = {
+    landmarks: PixelCoord[];   // [[x,y,z], ...]
+    target: number[] | null;    // screen-space target (or omit)
+}
 
 
 // https://github.com/webrtcHacks/tfObjWebrtc/blob/master/static/objDetect.js
@@ -128,8 +130,8 @@ export class GazeDetector extends EventEmitter {
                 audio: false,
                 video:
                     {
-                        width: {min: 640, ideal: 640, max: 640},
-                        height: {min: 480, ideal: 480, max: 480},
+                        width: {min: 640, ideal: 1280, max: 1280},
+                        height: {min: 480, ideal: 960, max: 960},
                         frameRate: {ideal: 30, max: 30}
                     }
             })
@@ -224,27 +226,55 @@ export class GazeDetector extends EventEmitter {
         const num_frames_for_frame_rate_measurement = 10;
         let time_at_last_frame_rate_measurement = window.performance.now();
 
-        const processFrameRAW = async () => {
-            if (++frame_count >= num_frames_for_frame_rate_measurement) {
-                frame_count = 0;
-                const now = window.performance.now();
-                this_.frame_rate = 1000.0 * num_frames_for_frame_rate_measurement / (now - time_at_last_frame_rate_measurement);
 
-                time_at_last_frame_rate_measurement = now;
+        // --- batching state ---
+        let sendInFlight = false;
+        let batchBuffer: BatchItem[] = [];
+
+// Prevent unbounded growth if backend stalls
+        const MAX_BACKLOG_ITEMS = 30; // ~1s of data @30fps
+
+        function enqueueTrainingSample(item:BatchItem) {
+            // Coalesce into an ever-growing batch while backend is busy
+            batchBuffer.push(item);
+            if (batchBuffer.length > MAX_BACKLOG_ITEMS) {
+                // Keep the most recent data if we hit the cap
+                batchBuffer.splice(0, batchBuffer.length - MAX_BACKLOG_ITEMS);
             }
-            this_.emit('ProcessedFrame');
-            this.videoCaptureElement.requestVideoFrameCallback(processFrame);
+            // If backend is "ready" (i.e., no request in flight), ship the batch now
+            if (!sendInFlight) void sendBatchNow();
         }
+
+        async function sendBatchNow() {
+            if (sendInFlight) return;
+            const batch = batchBuffer.splice(0, batchBuffer.length); // drain current buffer
+            if (batch.length === 0) return;
+            console.log(`Batch size: ${batch.length}`);
+            sendInFlight = true;
+            try {
+                const features = await post_data(batch);
+                if (features) {
+                    this_.training_loss = features.losses.loss;
+                    features.gaze = GazeDetector.ModelToScreenCoords(features.gaze);
+                    this_.emit('GazeDetectionComplete', features);
+                }
+
+                // (optional) re-queue on transient failure
+                batchBuffer = batch.concat(batchBuffer).slice(-MAX_BACKLOG_ITEMS);
+            } finally {
+                sendInFlight = false;
+                // If frames arrived during the send, immediately ship them as the next batch
+                if (batchBuffer.length) void sendBatchNow();
+            }
+        }
+
+
+
 
         const processFrame = async () => {
             if (this_.isPlaying) {
 
-                let features: iGazeDetectorResult | undefined = undefined;
 
-                // const faceBoundingBox = await this.landmarkDetector.GetFaceBoundingBox();
-                // await copyFaceToTarget(faceBoundingBox);
-
-                // imageCtx.drawImage(v, 0, 0, v.videoWidth, v.videoHeight, 0, 0, overlayCanvas.width, overlayCanvas.width * (v.videoHeight / v.videoWidth));
 
                 const landmarkerResult = await this.landmarkDetector.GetLandmarks();
 
@@ -268,22 +298,13 @@ export class GazeDetector extends EventEmitter {
                         }
                     }
                     const landmarks_as_array = landmarks.map((p) => [p.x, p.y, p.z]);
-                    features = await post_landmarks(landmarks_as_array, GazeDetector.screenToModelCoords(this_.target_pos));
+
+                    const target_ = this_.target_pos ? GazeDetector.screenToModelCoords(this_.target_pos) : null;
+
+                    enqueueTrainingSample( { landmarks: landmarks_as_array, target: target_ ? [ target_.x, target_.y] : null });
 
                 }
 
-
-                if (features !== undefined) {
-
-                    this_.training_loss = features.losses.loss;
-                    features.gaze = GazeDetector.ModelToScreenCoords(features.gaze)
-                    this_.emit('GazeDetectionComplete', features);
-
-
-                    // overlayCtx.drawImage(v, 0, 0, v.videoWidth, v.videoHeight, 0, 0, uploadWidth, uploadWidth * (v.videoHeight / v.videoWidth));
-
-
-                }
                 if (++frame_count >= num_frames_for_frame_rate_measurement) {
                     frame_count = 0;
                     const now = window.performance.now();
@@ -352,7 +373,7 @@ export class GazeDetector extends EventEmitter {
 
         let current_x = 0;
         let current_y = 0;
-        this.on('GazeDetectionComplete', (features: iGazeDetectorResult) => {
+        this.on('GazeDetectionComplete', (features: iGazeDetectorAddDataResult) => {
 
             gazeElement.setPosition(features.gaze);
 

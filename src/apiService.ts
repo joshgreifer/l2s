@@ -1,5 +1,9 @@
-import {iGazeDetectorResult, iGazeDetectorTrainResult} from "./GazeDetector";
-import {LandmarkFeatures} from "./LandMarkDetector";
+import {
+    BatchItem,
+    iGazeDetectorAddDataResult,
+    iGazeDetectorTrainResult
+} from "./GazeDetector";
+
 
 export class HttpError extends Error {
     constructor(response: Response, public code= response.status) {
@@ -63,25 +67,21 @@ export async function train(epochs: number, action: "train" | "calibrate") : Pro
     return loss_json;
 
 }
-export async function post_landmarks(landmarks: any[], target: {  x: number, y: number } | undefined = undefined) : Promise<iGazeDetectorResult | undefined> {
+export async function post_data(batch: BatchItem[]) : Promise<iGazeDetectorAddDataResult | undefined> {
 
-    let target_post = target ? { target_x: target.x.toString() , target_y: target.y.toString()} :  { target_x: "undefined", target_y: "undefined"}
 
-    const landmarks_and_target = {
-        landmarks: landmarks,
-        target: target_post
-    }
-
-    const api_response = await fetch(`/api/gaze/landmarks`, {
+    const api_response = await fetch(`/api/gaze/data`, {
 
         method: 'post',
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         },
-        body: JSON.stringify(landmarks_and_target)
+        body: JSON.stringify(batch)
     });
     return await api_response.json();
 }
+
+
 
 

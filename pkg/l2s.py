@@ -1,6 +1,7 @@
 import logging
 import math
 import sys
+from typing import List, Dict, Any
 
 import numpy as np
 import torch
@@ -36,6 +37,7 @@ class L2S:
             self.config = config
             self.mode = 'eval'
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            print(f'Model is using device {self.device}')
             self.target = np.ndarray((2,))  # x, y coords, -1..1, origin center of the screen
 
             if self.config.model_type == 'GazePCAMLP':
@@ -147,62 +149,53 @@ class L2S:
 
         return self.losses
 
-    def predict(self, landmarks, label):
+    def add_data(self, batch: List[Dict[str, Any]]) -> Dict[str, int]:
+        add_item_main = self.dataset.add_item
+        add_item_ft = getattr(self, "fine_tuning_dataset", None)
+        add_item_ft = add_item_ft.add_item if add_item_ft is not None else None
+        for item in batch:
 
-        # print("-------", landmarks, "-------")
-        # print("-------", label, "-------")
+            if item["target"] is not None:
+                x = torch.tensor(item["landmarks"], dtype=torch.float32)  # CPU tensor for storage
+                y = torch.tensor(item["target"], dtype=torch.float32)  # [x, y]
+                add_item_main(x, y)
+                if add_item_ft:
+                    add_item_ft(x, y)
 
-        # Return some of the landmarks back to the client.
-        # This is not really necessary, as the client itself found the landmarks in the first place.
-        # This is a legacy from the old app, where the client posted video frames
-        # and the server found the landmarks.
+                if self.dataset.idx % self.config.train.dataset_checkpoint_frequency == 0:
+                    self.dataset.save(self.config.dataset_path)
+                    log().info(f"Saved dataset to {self.config.dataset_path}. Dataset size {len(self.dataset)}")
 
-        # face_oval_landmarks = [[landmark[0], landmark[1]] for landmark in landmarks["face_oval"]]
-        # nose_landmarks = [[landmark[0], landmark[1]] for landmark in landmarks["nose"]]
-        # landmarks_for_display = face_oval_landmarks + nose_landmarks
+        # Do gaze prediction for the last item in the batch
+        prediction = self.predict(batch[-1]["landmarks"])
+        return { 'data_index': self.dataset.idx,
+                 'gaze': prediction['gaze'],
+                 'losses': self.losses
+                }
 
-        # Convert the landmarks into a tensor.  This tensor is what's saved in the dataset
-        # as well as being passed to the model.
+    def predict(self, landmarks):
 
-        assert isinstance(landmarks, list)
+
         landmarks = torch.Tensor(landmarks).to(torch.float32)
-        # If we're gathering training data, add the landmarks (x) and label (y)
-        # In the training dataset.
-        if label is not None:
-            label_as_tensor = torch.Tensor(label).to(torch.float32)
-            self.dataset.add_item(landmarks, label_as_tensor)
-            self.fine_tuning_dataset.add_item(landmarks, label_as_tensor)
-            # Save dataset periodically
-            if (self.dataset.idx % self.config.train.dataset_checkpoint_frequency) == 0:
-                self.dataset.save(self.config.dataset_path)
-                log().info(f"Saved dataset to {self.config.dataset_path}. Dataset size {len(self.dataset)}")
+
 
         # Predict the gaze coordinates
 
         if self.model is not None:
+            self.model.eval()
             with torch.no_grad():
-                self.model.eval()
-                if self.config.model_type == "GazePCALSTM":
-                    #  unsqueeze once for sequence dimension, and again for batch dimension
-                    pred = self.model(landmarks.view(1, 1, *landmarks.shape).to(self.device), streaming=True)
-                else:
-                    pred = self.model(torch.unsqueeze(landmarks, 0).to(self.device))
 
+                pred = self.model(torch.unsqueeze(landmarks, 0).to(self.device))
                 pred = torch.squeeze(pred)
                 gaze_location = pred.cpu().detach().numpy()
         else:
             gaze_location = [0,0]
         # print(label, features, gaze_location)
         return {
-            'data_index': self.dataset.idx,
-            'faces': 1,
-            'eyes': 2,
             'gaze': {
                 'x': float(gaze_location[0]),
                 'y': float(gaze_location[1])
-            },
-            'landmarks': [],  # landmarks_for_display,
-            'losses': self.losses
+            }
         }
 
 
