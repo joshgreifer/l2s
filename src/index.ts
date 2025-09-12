@@ -9,6 +9,7 @@ import {TabNavigator} from "./util/nav";
 import {apiAvailable} from "./apiService";
 import {Fullscreen} from "./util/util";
 import * as util from "node:util";
+import {WebOnnxAdapter} from "./runtime/WebOnnxAdapter";
 
 customElements.define('gaze-element', GazeElement);
 // status fields and start button in UI
@@ -39,6 +40,10 @@ let subject: Subject | undefined = undefined;
 (async () => {
 
 
+
+    const onnx = new WebOnnxAdapter();
+    await onnx.init('/models/gaze.onnx');  // path you’re already serving
+    await onnx.predict(new Float32Array(478 * 3));         // should log and return [x,y] without errors
 
     setUpDomElementVars();
 

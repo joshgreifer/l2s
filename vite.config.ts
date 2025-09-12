@@ -46,9 +46,10 @@ export default defineConfig({
           dest: '.' // copies src/index.html to dist/static/
         },
         {
-          src: '../static/*',
+          src: '../static/**/*',
           dest: '.' // copies all files from static to dist/static/
-        }
+        },
+           { src: '../node_modules/onnxruntime-web/dist/*', dest: 'ort' }
       ]
     })
   ]
