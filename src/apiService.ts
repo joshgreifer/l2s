@@ -75,8 +75,7 @@ export async function post_data(batch: BatchItem[]) : Promise<iGazeDetectorAddDa
 
     if (webOnnx.ready) {
         const last = batch[batch.length - 1];
-        const flat = new Float32Array(last.landmarks.flat());
-        const [gx, gy] = await webOnnx.predict(flat);
+        const [gx, gy] = await webOnnx.predict(last.landmarks);
         const [tx, ty] = last.target ?? [0, 0];
         const h_loss = Math.abs(gx - tx);
         const v_loss = Math.abs(gy - ty);
