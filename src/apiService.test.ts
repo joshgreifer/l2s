@@ -9,7 +9,7 @@ vi.mock("./runtime/WebOnnxAdapter", () => {
     };
 });
 
-import { apiAvailable, post_data } from "./apiService";
+import { apiAvailable, post_data, train, save_gaze_model } from "./apiService";
 import type { BatchItem } from "./training/Trainer";
 
 describe("apiService", () => {
@@ -33,6 +33,33 @@ describe("apiService", () => {
         expect(result?.gaze).toEqual({ x: 1, y: 2 });
         expect(result?.losses).toEqual({ h_loss: 2, v_loss: 2, loss: 2 });
         expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("train returns updated losses", async () => {
+        const landmarks: [number, number, number][] = Array.from(
+            { length: 478 },
+            () => [0, 0, 0],
+        );
+        const batch: BatchItem[] = [{ landmarks, target: [3, 4] }];
+        const losses = await train(batch, 1, "train");
+        expect(losses.loss).toBeGreaterThanOrEqual(0);
+    });
+
+    it("save_gaze_model triggers download", async () => {
+        const clickSpy = vi.fn();
+        // @ts-ignore
+        globalThis.document = {};
+        // @ts-ignore
+        document.body = { appendChild: vi.fn(), removeChild: vi.fn() };
+        // @ts-ignore
+        document.createElement = vi.fn().mockReturnValue({ click: clickSpy });
+        // @ts-ignore
+        URL.createObjectURL = vi.fn().mockReturnValue("blob:foo");
+        // @ts-ignore
+        URL.revokeObjectURL = vi.fn();
+        const ok = await save_gaze_model();
+        expect(ok).toBe(true);
+        expect(clickSpy).toHaveBeenCalled();
     });
 });
 
