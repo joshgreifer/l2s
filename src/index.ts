@@ -1,5 +1,7 @@
 import { GazeElement } from "./GazeElement";
 import { GazeSession } from "./controllers/GazeSession";
+import { InputHandler } from "./services/InputHandler";
+import { DataAcquisitionService } from "./services/DataAcquisitionService";
 
 import "./util/index";
 import { TabNavigator } from "./util/nav";
@@ -10,6 +12,8 @@ import { PixelCoord } from "./util/Coords";
 import { ui } from "./UI";
 
 let session: GazeSession | undefined;
+let inputHandler: InputHandler | undefined;
+let dataAcquisition: DataAcquisitionService | undefined;
 
 function initUI() {
     customElements.define('gaze-element', GazeElement);
@@ -22,6 +26,9 @@ function initUI() {
             await Fullscreen(document.documentElement);
             session = new GazeSession();
             await session.Run();
+            if (session.gazeDetector)
+                dataAcquisition = new DataAcquisitionService(session.gazeDetector);
+            inputHandler = new InputHandler(session, dataAcquisition!);
         } catch (e) {
             // @ts-ignore
             window.alert((e as Error).toString());
@@ -38,6 +45,8 @@ function monitorApiStatus() {
         } else {
             ui.apiIndicator.classList.remove('active');
             if (session) await session.StopGazeDetection();
+            dataAcquisition?.stop();
+            inputHandler?.dispose();
         }
 
         ui.startGazeDetectionButton.disabled = !ready || (session !== undefined && session.GazeDetectionActive);
