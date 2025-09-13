@@ -3,7 +3,9 @@ import {
     iGazeDetectorAddDataResult,
     iGazeDetectorTrainResult
 } from "./GazeDetector";
+import { webOnnx } from "./runtime/WebOnnxAdapter";
 
+let data_index = 0;
 
 export class HttpError extends Error {
     constructor(response: Response, public code= response.status) {
@@ -20,6 +22,8 @@ export class HttpServerError extends Error {
     }
 }
 export async function apiAvailable() : Promise<Boolean> {
+    if (webOnnx.ready)
+        return true;
     try {
         return (await fetch(`/api`)).status === 200;
 
@@ -69,6 +73,20 @@ export async function train(epochs: number, action: "train" | "calibrate") : Pro
 }
 export async function post_data(batch: BatchItem[]) : Promise<iGazeDetectorAddDataResult | undefined> {
 
+    if (webOnnx.ready) {
+        const last = batch[batch.length - 1];
+        const flat = new Float32Array(last.landmarks.flat());
+        const [gx, gy] = await webOnnx.predict(flat);
+        const [tx, ty] = last.target ?? [0, 0];
+        const h_loss = Math.abs(gx - tx);
+        const v_loss = Math.abs(gy - ty);
+        const loss = (h_loss + v_loss) / 2;
+        return {
+            data_index: data_index++,
+            gaze: { x: gx, y: gy },
+            losses: { h_loss, v_loss, loss }
+        };
+    }
 
     const api_response = await fetch(`/api/gaze/data`, {
 
