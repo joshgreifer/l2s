@@ -11,7 +11,7 @@ else:
         raise ImportError("onnxruntime-training is not installed. Please install it via 'pip install onnxruntime-training'") from e
 
 
-    MODEL = "cache/checkpoints/GazePCAMLP_baked_forward.onnx"
+    MODEL = "cache/checkpoints/gaze_mlp.onnx"
     OUTDIR = "cache/ort_artifacts"
     PREFIX = "gaze_"
 
