@@ -9,15 +9,19 @@ export class WebOnnxAdapter {
   ready = false;
 
   async init() {
-    // Keep it simple: single-threaded, no proxy workers. (Threaded is fine too, but this removes that variable.)
+    // Configure ORT's environment. Keep it single-threaded and avoid proxy
+    // workers. When proxy workers were enabled, the main bundle was executed
+    // in a WebWorker that lacks a DOM, which surfaced as "document is not
+    // defined" errors in the console.
     const env = (window as any).ort?.env ?? ort.env;
     env.logLevel = 'verbose';
     env.wasm.simd = true;
     env.wasm.numThreads = 4;
-    env.wasm.proxy = true;
-    // ORT expects its wasm assets relative to this path.
-    // The Vite build copies the WASM binaries into /assets.
-    env.wasm.wasmPaths = '/static/ort';
+    env.wasm.proxy = false;
+    // ORT expects its wasm assets relative to this path. Vite copies the
+    // binaries into /ort at the static root, so reference that location
+    // directly.
+    env.wasm.wasmPaths = '/ort';
 
     const sessionOptions: ort.InferenceSession.SessionOptions = {
       executionProviders: ['webgpu', 'wasm'],
