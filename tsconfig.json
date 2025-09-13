@@ -12,7 +12,7 @@
     "sourceMap": true,
     "inlineSources": true,
     "baseUrl": ".",
-    "types": []
+    "types": ["vite/client", "vitest/globals"]
   },
   "exclude": ["node_modules"]
 }
