@@ -42,10 +42,6 @@ export default defineConfig({
           dest: '..'
         },
         {
-          src: 'index.html',
-          dest: '.' // copies src/index.html to dist/static/
-        },
-        {
           src: 'styles/**/*',
           dest: 'styles'
         },
