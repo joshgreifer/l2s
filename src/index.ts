@@ -10,6 +10,7 @@ import {apiAvailable} from "./apiService";
 import {Fullscreen} from "./util/util";
 import * as util from "node:util";
 import {webOnnx} from "./runtime/WebOnnxAdapter";
+import { PixelCoord } from "./util/Coords";
 
 customElements.define('gaze-element', GazeElement);
 // status fields and start button in UI
@@ -41,8 +42,8 @@ let subject: Subject | undefined = undefined;
 
 
 
-    await webOnnx.init('/models/gaze.onnx');  // path you’re already serving
-    await webOnnx.predict(new Float32Array(478 * 3));         // should log and return [x,y] without errors
+    await webOnnx.init();
+    await webOnnx.predict(Array.from({ length: 478 }, () => [0, 0, 0] as PixelCoord));
 
     setUpDomElementVars();
 
