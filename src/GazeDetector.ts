@@ -5,7 +5,7 @@ import {LandMarkDetector} from "./LandMarkDetector";
 import {FaceLandmarker} from "@mediapipe/tasks-vision";
 import {GazeElement} from "./GazeElement";
 import { ui } from "./UI";
-import {Coord, PixelCoord} from "./util/Coords";
+import {Coord, PixelCoord, modelToScreenCoords, screenToModelCoords} from "./util/Coords";
 import type {iGazeDetectorAddDataResult, IGazeTrainer} from "./training/Trainer";
 // https://github.com/webrtcHacks/tfObjWebrtc/blob/master/static/objDetect.js
 export class GazeDetector extends EventEmitter {
@@ -17,41 +17,6 @@ export class GazeDetector extends EventEmitter {
     frame_rate: number = 0;
     private trainer: IGazeTrainer | undefined = undefined;
     private containerDiv: HTMLDivElement;
-
-    static ModelToScreenCoords(point: Coord | PixelCoord): Coord {
-        let x, y;
-
-        const isPixelCoord: boolean = Array.isArray(point)
-        if (!isPixelCoord) {
-            x = (<Coord>point).x;
-            y = (<Coord>point).y
-            x /= 2;
-            y /= 2;
-            x += 0.5;
-            y += 0.5;
-            x *= screen.width;
-            y *= screen.height;
-        } else {
-            x = (<PixelCoord>point)[0];
-            y = (<PixelCoord>point)[1];
-        }
-        return {x: Math.round(x), y: Math.round(y)}
-    }
-
-    static screenToModelCoords(point: Coord | undefined): Coord | undefined {
-        if (!point)
-            return undefined;
-        let [x, y] = [point.x, point.y];
-        x /= screen.width;
-        y /= screen.height;
-        x -= 0.5;
-        y -= 0.5;
-        x *= 2;
-        y *= 2;
-        return {x: x, y: y}
-
-    }
-
 
 //create a canvas to grab an image for upload
 //     imageCanvas: HTMLCanvasElement;
@@ -102,7 +67,7 @@ export class GazeDetector extends EventEmitter {
 
     private onTrainerPrediction = (features: iGazeDetectorAddDataResult) => {
         this.training_loss = features.losses.loss;
-        features.gaze = GazeDetector.ModelToScreenCoords(features.gaze);
+        features.gaze = modelToScreenCoords(features.gaze);
         this.emit('GazeDetectionComplete', features);
     };
 
@@ -230,7 +195,7 @@ export class GazeDetector extends EventEmitter {
                     }
                     const landmarks_as_array = landmarks.map((p) => [p.x, p.y, p.z]);
 
-                    const target_ = this_.target_pos ? GazeDetector.screenToModelCoords(this_.target_pos) : null;
+                    const target_ = this_.target_pos ? screenToModelCoords(this_.target_pos) : null;
 
                     this_.trainer?.addSample({ landmarks: landmarks_as_array, target: target_ ? [ target_.x, target_.y] : null });
 
