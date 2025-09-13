@@ -34,7 +34,12 @@ def export_pca(pca, out_path: str, opset: int) -> None:
     )
 
     # Adjust graph to accept [1, 478, 3] input and flatten internally
+    # Rename both the graph output and the producing node so the checker
+    # sees a valid connection (the original skl2onnx export names the
+    # final output something like "variable").
     pca_model.graph.output[0].name = "pca"
+    if pca_model.graph.node:
+        pca_model.graph.node[-1].output[0] = "pca"
 
     # Insert new 3D input
     landmarks = helper.make_tensor_value_info(
