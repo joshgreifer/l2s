@@ -4,9 +4,11 @@ import { GazeDetector } from "../GazeDetector";
 import { save_gaze_model } from "../apiService";
 import { ui } from "../UI";
 import { notifications } from "../services/NotificationService";
+import { Trainer, IGazeTrainer } from "../training/Trainer";
 
 export class GazeSession extends EventEmitter {
   private isGazeDetectionActive = false;
+  private trainer?: IGazeTrainer;
 
   public get GazeDetectionActive(): boolean {
     return this.isGazeDetectionActive;
@@ -17,7 +19,7 @@ export class GazeSession extends EventEmitter {
   }
 
   public get isTrainingActive(): boolean {
-    return this.gazeDetector !== undefined && this.gazeDetector.isTraining;
+    return this.trainer?.isTraining ?? false;
   }
 
   private targetTimeMs = 5000;
@@ -49,10 +51,15 @@ export class GazeSession extends EventEmitter {
   }
 
   public async StopGazeDetection() {
+    if (this.trainer) {
+      await this.trainer.stopTraining();
+    }
     if (this.gazeDetector) {
+      this.gazeDetector.Trainer = undefined;
       await this.gazeDetector.term();
       this.gazeDetector = undefined;
     }
+    this.trainer = undefined;
     this.isGazeDetectionActive = false;
   }
 
@@ -105,17 +112,19 @@ export class GazeSession extends EventEmitter {
   }
 
   public async StartTraining() {
-    if (this.gazeDetector && !this.gazeDetector.isTraining) await this.gazeDetector.startTraining();
+    if (this.trainer && !this.trainer.isTraining) this.trainer.startTraining();
   }
 
   public async StopTraining() {
-    if (this.gazeDetector && this.gazeDetector.isTraining) await this.gazeDetector.stopTraining();
+    if (this.trainer && this.trainer.isTraining) await this.trainer.stopTraining();
   }
 
   public async StartGazeDetection() {
     if (this.isGazeDetectionActive) return;
     this.isGazeDetectionActive = true;
     if (!this.gazeDetector) this.gazeDetector = new GazeDetector(ui.vidCap, ui.landmarkSelector);
+    if (!this.trainer) this.trainer = new Trainer();
+    this.gazeDetector.Trainer = this.trainer;
 
     const vidcap_overlay = ui.vidCapOverlay;
 

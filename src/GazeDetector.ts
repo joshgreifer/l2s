@@ -3,33 +3,10 @@ import EventEmitter from "eventemitter3";
 
 import {LandMarkDetector} from "./LandMarkDetector";
 import {FaceLandmarker} from "@mediapipe/tasks-vision";
-import {ContinuousTrainer} from "./ContinuousTrainer";
 import {GazeElement} from "./GazeElement";
 import { ui } from "./UI";
 import {Coord, PixelCoord} from "./util/Coords";
-import {post_data} from "./apiService";
-
-
-
-export interface iGazeDetectorTrainResult {
-    h_loss: number;
-    v_loss: number;
-    loss: number;
-}
-
-export interface iGazeDetectorAddDataResult {
-    data_index: number;
-    gaze: Coord; // Predicted gaze of last landmark in batch in screen coordinates
-    losses: iGazeDetectorTrainResult;
-}
-
-
-export type BatchItem = {
-    landmarks: PixelCoord[];   // [[x,y,z], ...]
-    target: number[] | null;    // screen-space target (or omit)
-}
-
-
+import type {iGazeDetectorAddDataResult, IGazeTrainer} from "./training/Trainer";
 // https://github.com/webrtcHacks/tfObjWebrtc/blob/master/static/objDetect.js
 export class GazeDetector extends EventEmitter {
 //for starting events
@@ -38,8 +15,7 @@ export class GazeDetector extends EventEmitter {
 
     training_loss: number = -1;
     frame_rate: number = 0;
-    continuousTrainer: ContinuousTrainer | undefined = undefined;
-    training_promise: Promise<void> | undefined = undefined;
+    private trainer: IGazeTrainer | undefined = undefined;
     private containerDiv: HTMLDivElement;
 
     static ModelToScreenCoords(point: Coord | PixelCoord): Coord {
@@ -110,7 +86,7 @@ export class GazeDetector extends EventEmitter {
     }
 
     public get isTraining(): boolean {
-        return this.training_promise !== undefined;
+        return this.trainer?.isTraining ?? false;
     }
 
     // public Mode: GazeDetectorMode = 'features';
@@ -122,6 +98,22 @@ export class GazeDetector extends EventEmitter {
         this.isPlaying = false;
         const v = this.videoCaptureElement;
         v.srcObject = v.onloadedmetadata = v.onplaying = null;
+    }
+
+    private onTrainerPrediction = (features: iGazeDetectorAddDataResult) => {
+        this.training_loss = features.losses.loss;
+        features.gaze = GazeDetector.ModelToScreenCoords(features.gaze);
+        this.emit('GazeDetectionComplete', features);
+    };
+
+    public set Trainer(t: IGazeTrainer | undefined) {
+        if (this.trainer) this.trainer.off('prediction', this.onTrainerPrediction);
+        this.trainer = t;
+        if (t) t.on('prediction', this.onTrainerPrediction);
+    }
+
+    public get Trainer(): IGazeTrainer | undefined {
+        return this.trainer;
     }
 
     public async init() {
@@ -175,24 +167,6 @@ export class GazeDetector extends EventEmitter {
 
     }
 
-    async startTraining() {
-        if (!this.continuousTrainer) {
-            this.continuousTrainer = new ContinuousTrainer();
-            this.continuousTrainer.on('data', (loss) => {
-            });
-
-            this.training_promise = this.continuousTrainer.Start();
-        }
-
-    }
-    async stopTraining() {
-        if (this.continuousTrainer) {
-            this.continuousTrainer.Stop();
-            if (this.training_promise)
-                await this.training_promise;
-            this.continuousTrainer = this.training_promise = undefined;
-        }
-    }
     async startGazeDetection() {
         const this_ = this;
         const v = this.videoCaptureElement;
@@ -228,50 +202,6 @@ export class GazeDetector extends EventEmitter {
         let time_at_last_frame_rate_measurement = window.performance.now();
 
 
-        // --- batching state ---
-        let sendInFlight = false;
-        let batchBuffer: BatchItem[] = [];
-
-// Prevent unbounded growth if backend stalls
-        const MAX_BACKLOG_ITEMS = 30; // ~1s of data @30fps
-
-        function enqueueTrainingSample(item:BatchItem) {
-            // Coalesce into an ever-growing batch while backend is busy
-            batchBuffer.push(item);
-            if (batchBuffer.length > MAX_BACKLOG_ITEMS) {
-                // Keep the most recent data if we hit the cap
-                batchBuffer.splice(0, batchBuffer.length - MAX_BACKLOG_ITEMS);
-            }
-            // If backend is "ready" (i.e., no request in flight), ship the batch now
-            if (!sendInFlight) void sendBatchNow();
-        }
-
-        async function sendBatchNow() {
-            if (sendInFlight) return;
-            const batch = batchBuffer.splice(0, batchBuffer.length); // drain current buffer
-            if (batch.length === 0) return;
-            console.log(`Batch size: ${batch.length}`);
-            sendInFlight = true;
-            try {
-                const features = await post_data(batch);
-                if (features) {
-                    this_.training_loss = features.losses.loss;
-                    features.gaze = GazeDetector.ModelToScreenCoords(features.gaze);
-                    this_.emit('GazeDetectionComplete', features);
-                }
-
-                // (optional) re-queue on transient failure
-                batchBuffer = batch.concat(batchBuffer).slice(-MAX_BACKLOG_ITEMS);
-            } finally {
-                sendInFlight = false;
-                // If frames arrived during the send, immediately ship them as the next batch
-                if (batchBuffer.length) void sendBatchNow();
-            }
-        }
-
-
-
-
         const processFrame = async () => {
             if (this_.isPlaying) {
 
@@ -302,7 +232,7 @@ export class GazeDetector extends EventEmitter {
 
                     const target_ = this_.target_pos ? GazeDetector.screenToModelCoords(this_.target_pos) : null;
 
-                    enqueueTrainingSample( { landmarks: landmarks_as_array, target: target_ ? [ target_.x, target_.y] : null });
+                    this_.trainer?.addSample({ landmarks: landmarks_as_array, target: target_ ? [ target_.x, target_.y] : null });
 
                 }
 
