@@ -15,18 +15,18 @@ export class WebOnnxAdapter {
     env.wasm.simd = true;
     env.wasm.numThreads = 4;
     env.wasm.proxy = true;
+    // ORT expects its wasm assets relative to this path
+    env.wasm.wasmPaths = '/ort';
 
-    this.pcaSession = await ort.InferenceSession.create('/models/pca.onnx', {
-      executionProviders: ['webgpu'],
+    const sessionOptions: ort.InferenceSession.SessionOptions = {
+      executionProviders: ['webgpu', 'wasm'],
       graphOptimizationLevel: 'all',
       extra: { 'session.use_ort_model_bytes_directly': '1' },
-    });
+    };
 
-    this.mlpSession = await ort.InferenceSession.create('/models/gaze_mlp.onnx', {
-      executionProviders: ['webgpu'],
-      graphOptimizationLevel: 'all',
-      extra: { 'session.use_ort_model_bytes_directly': '1' },
-    });
+    this.pcaSession = await ort.InferenceSession.create('/models/pca.onnx', sessionOptions);
+
+    this.mlpSession = await ort.InferenceSession.create('/models/gaze_mlp.onnx', sessionOptions);
 
     // --- SMOKE TEST --- end-to-end
     const dummy = new ort.Tensor('float32', new Float32Array(478 * 3), [1, 478, 3]);
