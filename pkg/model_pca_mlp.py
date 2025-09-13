@@ -51,6 +51,22 @@ class GazePCAMLP(GazeModel):
         """
         pass
 
+    def forward_features(self, feats: torch.Tensor):
+        """Run the MLP stack given PCA features."""
+        h = self.mlp(feats)
+        h_calib = self.calibration_layers(h)
+
+        y_main = self.last_fc(h)
+        y_calib = self.last_fc(h_calib)
+
+        gate = torch.sigmoid(self.gate_layer(h))
+        y = gate * y_calib + (1 - gate) * y_main
+        y = self.last_act(y)
+
+        if torch.onnx.is_in_onnx_export():
+            return y
+        return torch.squeeze(y)
+
     # pkg/model_pca_mlp.py
     def forward(self, x, streaming=False):
         batch_size, num_nodes, in_channels = x.shape
@@ -62,29 +78,10 @@ class GazePCAMLP(GazeModel):
 
         x = x.view(batch_size, -1)  # [B, 478*3]
 
-        # If PCA was baked, skip NumPy path entirely
-        if getattr(self, "pca_baked", False) or (self.pca is None):
-            feats = x  # already raw features; first Linear now expects raw
-        else:
-            # Legacy (unbaked) path — NumPy ok at runtime, but not used in export
-            feats_np = self.pca.transform(x.cpu().numpy())
-            feats = torch.tensor(feats_np, dtype=torch.float32, device=x.device)
+        feats_np = self.pca.transform(x.cpu().numpy())
+        feats = torch.tensor(feats_np, dtype=torch.float32, device=x.device)
 
-        # Main MLP feature extraction
-        h = self.mlp(feats)
-        h_calib = self.calibration_layers(h)
-
-        y_main = self.last_fc(h)
-        y_calib = self.last_fc(h_calib)
-
-        gate = torch.sigmoid(self.gate_layer(h))
-        y = gate * y_calib + (1 - gate) * y_main
-        y = self.last_act(y)  # [-1, 1], shape [B, 2]
-
-        # Keep batch-dim stable during export
-        if torch.onnx.is_in_onnx_export():
-            return y
-        return torch.squeeze(y)
+        return self.forward_features(feats)
 
 
 if __name__ == '__main__':
