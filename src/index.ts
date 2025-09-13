@@ -1,6 +1,5 @@
 import { GazeElement } from "./GazeElement";
-import { Subject } from "./Subject";
-import { Session } from "./Session";
+import { GazeSession } from "./controllers/GazeSession";
 
 import "./util/index";
 import { TabNavigator } from "./util/nav";
@@ -10,7 +9,7 @@ import { webOnnx } from "./runtime/WebOnnxAdapter";
 import { PixelCoord } from "./util/Coords";
 import { ui } from "./UI";
 
-let subject: Subject | undefined;
+let session: GazeSession | undefined;
 
 function initUI() {
     customElements.define('gaze-element', GazeElement);
@@ -21,8 +20,8 @@ function initUI() {
         ui.startGazeDetectionButton.disabled = true;
         try {
             await Fullscreen(document.documentElement);
-            subject = new Subject();
-            await new Session(subject).Run();
+            session = new GazeSession();
+            await session.Run();
         } catch (e) {
             // @ts-ignore
             window.alert((e as Error).toString());
@@ -38,10 +37,10 @@ function monitorApiStatus() {
             ui.apiIndicator.classList.add('active');
         } else {
             ui.apiIndicator.classList.remove('active');
-            if (subject) await subject.StopGazeDetection();
+            if (session) await session.StopGazeDetection();
         }
 
-        ui.startGazeDetectionButton.disabled = !ready || (subject !== undefined && subject.GazeDetectionActive);
+        ui.startGazeDetectionButton.disabled = !ready || (session !== undefined && session.GazeDetectionActive);
     }, 1000);
 }
 
