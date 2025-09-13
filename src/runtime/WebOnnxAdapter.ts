@@ -4,6 +4,7 @@ import * as ort from 'onnxruntime-web';
 
 export class WebOnnxAdapter {
   private session?: ort.InferenceSession;
+  ready = false;
 
   async init(modelUrl: string) {
     // Keep it simple: single-threaded, no proxy workers. (Threaded is fine too, but this removes that variable.)
@@ -22,10 +23,11 @@ export class WebOnnxAdapter {
     // --- SMOKE TEST ---
     const inputName = this.session.inputNames[0];
     const dummy = new ort.Tensor('float32', new Float32Array(1 * 478 * 3), [1, 478, 3]);
-    const out = await this.session.run({ [inputName]: dummy });        // <-- plain object, not Map
-    const y = out[this.session.outputNames[0]] as ort.Tensor;          // <-- tensor, not Map/Seq
-    console.log('ORT smoke:', { inputName, outName: this.session.outputNames[0], dims: y.dims, dataLen: (y.data as Float32Array).length });
-  }
+      const out = await this.session.run({ [inputName]: dummy });        // <-- plain object, not Map
+      const y = out[this.session.outputNames[0]] as ort.Tensor;          // <-- tensor, not Map/Seq
+      console.log('ORT smoke:', { inputName, outName: this.session.outputNames[0], dims: y.dims, dataLen: (y.data as Float32Array).length });
+      this.ready = true;
+    }
 
   async predict(flatLandmarks: Float32Array): Promise<[number, number]> {
     if (!this.session) throw new Error('ORT session not initialized');
@@ -39,3 +41,5 @@ export class WebOnnxAdapter {
     return [v[0], v[1]];
   }
 }
+
+export const webOnnx = new WebOnnxAdapter();
