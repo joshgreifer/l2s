@@ -108,7 +108,12 @@ export class GazeSession extends EventEmitter {
   }
 
   public async SaveGazeDetectorModel(): Promise<boolean> {
-    return await save_gaze_model();
+    try {
+      return await save_gaze_model();
+    } catch (err) {
+      console.error("Error saving gaze model", err);
+      return false;
+    }
   }
 
   public async StartTraining() {
