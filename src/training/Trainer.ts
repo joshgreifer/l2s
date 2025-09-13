@@ -1,7 +1,6 @@
 import EventEmitter from "eventemitter3";
 
-import { ContinuousTrainer } from "../ContinuousTrainer";
-import { post_data } from "../apiService";
+import { post_data, train } from "../apiService";
 import { Coord, PixelCoord } from "../util/Coords";
 
 export interface iGazeDetectorTrainResult {
@@ -28,58 +27,65 @@ export interface IGazeTrainer extends EventEmitter {
     readonly isTraining: boolean;
 }
 
-export class Trainer extends EventEmitter implements IGazeTrainer {
-    private continuousTrainer: ContinuousTrainer | undefined = undefined;
-    private trainingPromise: Promise<void> | undefined = undefined;
+class RingBufferDataset<T> {
+    private buf: T[] = [];
+    constructor(private readonly capacity: number) {}
 
-    private sendInFlight = false;
-    private batchBuffer: BatchItem[] = [];
+    add(item: T) {
+        this.buf.push(item);
+        if (this.buf.length > this.capacity) this.buf.shift();
+    }
+
+    toArray(): T[] {
+        return this.buf.slice();
+    }
+
+    get last(): T | undefined {
+        return this.buf[this.buf.length - 1];
+    }
+}
+
+export class Trainer extends EventEmitter implements IGazeTrainer {
     private readonly MAX_BACKLOG_ITEMS = 30; // ~1s of data @30fps
+    private dataset = new RingBufferDataset<BatchItem>(this.MAX_BACKLOG_ITEMS);
+    private trainingActive = false;
+    private trainingLoop?: Promise<void>;
 
     public get isTraining(): boolean {
-        return this.trainingPromise !== undefined;
+        return this.trainingActive;
     }
 
     startTraining() {
-        if (!this.continuousTrainer) {
-            this.continuousTrainer = new ContinuousTrainer();
-            this.continuousTrainer.on('data', () => {});
-            this.trainingPromise = this.continuousTrainer.Start();
-        }
+        if (this.trainingActive) return;
+        this.trainingActive = true;
+        this.trainingLoop = this.runTrainingLoop();
     }
 
     async stopTraining() {
-        if (this.continuousTrainer) {
-            this.continuousTrainer.Stop();
-            if (this.trainingPromise)
-                await this.trainingPromise;
-            this.continuousTrainer = undefined;
-            this.trainingPromise = undefined;
+        this.trainingActive = false;
+        if (this.trainingLoop) {
+            await this.trainingLoop;
+            this.trainingLoop = undefined;
         }
     }
 
     addSample(item: BatchItem) {
-        this.batchBuffer.push(item);
-        if (this.batchBuffer.length > this.MAX_BACKLOG_ITEMS) {
-            this.batchBuffer.splice(0, this.batchBuffer.length - this.MAX_BACKLOG_ITEMS);
-        }
-        if (!this.sendInFlight) void this.sendBatchNow();
+        this.dataset.add(item);
     }
 
-    private async sendBatchNow() {
-        if (this.sendInFlight) return;
-        const batch = this.batchBuffer.splice(0, this.batchBuffer.length);
-        if (batch.length === 0) return;
-        this.sendInFlight = true;
-        try {
-            const features = await post_data(batch);
-            if (features) {
-                this.emit('prediction', features);
+    private async runTrainingLoop() {
+        while (this.trainingActive) {
+            const batch = this.dataset.toArray();
+            const last = this.dataset.last;
+            if (batch.length && last) {
+                const losses = await train(batch, 1, "train");
+                this.emit('loss', losses);
+                const features = await post_data([last]);
+                if (features) {
+                    this.emit('prediction', features);
+                }
             }
-            this.batchBuffer = batch.concat(this.batchBuffer).slice(-this.MAX_BACKLOG_ITEMS);
-        } finally {
-            this.sendInFlight = false;
-            if (this.batchBuffer.length) void this.sendBatchNow();
+            await new Promise((r) => setTimeout(r, 0));
         }
     }
 }
