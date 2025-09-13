@@ -11,13 +11,14 @@ A session consists of a Hypnotherapist and Subject interacting.  The therapist s
  Verbal responses (what the subject says)
  */
 import {Subject} from "./Subject";
+import { ui } from "./UI";
 
 
 export class Session {
     notificationDiv: HTMLDivElement
 
     constructor(private subject: Subject) {
-        this.notificationDiv = <HTMLDivElement>document.querySelector('.notification');
+        this.notificationDiv = ui.notificationDiv;
     }
 
     private Notify(message: string): void {

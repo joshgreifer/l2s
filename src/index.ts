@@ -1,88 +1,58 @@
-
-
-import {GazeElement} from "./GazeElement";
-import {Subject} from "./Subject";
-import {Session} from "./Session";
+import { GazeElement } from "./GazeElement";
+import { Subject } from "./Subject";
+import { Session } from "./Session";
 
 import "./util/index";
-import {TabNavigator} from "./util/nav";
-import {apiAvailable} from "./apiService";
-import {Fullscreen} from "./util/util";
-import * as util from "node:util";
-import {webOnnx} from "./runtime/WebOnnxAdapter";
+import { TabNavigator } from "./util/nav";
+import { apiAvailable } from "./apiService";
+import { Fullscreen } from "./util/util";
+import { webOnnx } from "./runtime/WebOnnxAdapter";
 import { PixelCoord } from "./util/Coords";
+import { ui } from "./UI";
 
-customElements.define('gaze-element', GazeElement);
-// status fields and start button in UI
+let subject: Subject | undefined;
 
-let statusDiv: HTMLDivElement;
-let startGazeDetectionButton!: HTMLButtonElement;
-let indicatorApiAvailableEl: HTMLDivElement;
+function initUI() {
+    customElements.define('gaze-element', GazeElement);
 
+    TabNavigator.switchToPage('page-face');
 
-function setUpDomElementVars() {
-    startGazeDetectionButton = <HTMLButtonElement>document.querySelector("#startGazeDetectionButton");
-
-    statusDiv = <HTMLDivElement>document.querySelector("#statusDiv");
-
-    indicatorApiAvailableEl = <HTMLDivElement>document.querySelector('.api-avail-indicator');
-
-
-
-}
-
-
-
-TabNavigator.switchToPage('page-face');
-
-
-let subject: Subject | undefined = undefined;
-
-(async () => {
-
-
-
-    await webOnnx.init();
-    await webOnnx.predict(Array.from({ length: 478 }, () => [0, 0, 0] as PixelCoord));
-
-    setUpDomElementVars();
-
-
-    startGazeDetectionButton.addEventListener("click", async function () {
-
-        startGazeDetectionButton.disabled = true;
-
+    ui.startGazeDetectionButton.addEventListener("click", async () => {
+        ui.startGazeDetectionButton.disabled = true;
         try {
             await Fullscreen(document.documentElement);
-
-            subject =  new Subject();
+            subject = new Subject();
             await new Session(subject).Run();
         } catch (e) {
             // @ts-ignore
-            window.alert(e.toString());
+            window.alert((e as Error).toString());
         }
-
-        startGazeDetectionButton.disabled = false;
-
+        ui.startGazeDetectionButton.disabled = false;
     });
+}
 
-})();
-
-const pollForAPIHandle =window.setInterval(() => {
-
-    (async () => {
-
+function monitorApiStatus() {
+    window.setInterval(async () => {
         const ready = await apiAvailable();
-        if (ready)
-            indicatorApiAvailableEl.classList.add('active');
-        else {
-            indicatorApiAvailableEl.classList.remove('active');
+        if (ready) {
+            ui.apiIndicator.classList.add('active');
+        } else {
+            ui.apiIndicator.classList.remove('active');
             if (subject) await subject.StopGazeDetection();
         }
 
-        startGazeDetectionButton.disabled = !ready || (subject !== undefined && subject.GazeDetectionActive);
+        ui.startGazeDetectionButton.disabled = !ready || (subject !== undefined && subject.GazeDetectionActive);
+    }, 1000);
+}
 
-    } )();
+export async function bootstrap() {
+    await webOnnx.init();
+    await webOnnx.predict(Array.from({ length: 478 }, () => [0, 0, 0] as PixelCoord));
+    initUI();
+    monitorApiStatus();
+}
 
-}, 1000);
+window.addEventListener('DOMContentLoaded', () => {
+    bootstrap();
+});
 

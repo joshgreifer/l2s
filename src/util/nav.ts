@@ -39,6 +39,8 @@
  *
  */
 
+import { ui } from "../UI";
+
 class TabNavigator_class {
 
     public switchToPage(page_id: string) {
@@ -56,7 +58,7 @@ class TabNavigator_class {
     }
 
     constructor() {
-        const tabContainer = document.querySelector('.page-tabs')
+        const tabContainer = ui.pageTabs;
         if (tabContainer === null)
             window.alert("Can't construct tab navigator, couldn't find a tab container element in document (with the class'page-tabs'.")
         else {
