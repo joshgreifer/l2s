@@ -1,8 +1,7 @@
 
 // For diagnostics, export Luis response
 
-import {Subject} from "./Subject";
-import {Session} from "./Session";
+import {AppController} from "./AppController";
 
 
 import {TabNavigator} from "./util/nav";
@@ -32,7 +31,7 @@ function setUpDomElementVars() {
 TabNavigator.switchToPage('page-face');
 
 
-let subject: Subject | undefined = undefined;
+let appController: AppController | undefined = undefined;
 
 (async () => {
 
@@ -48,8 +47,8 @@ let subject: Subject | undefined = undefined;
         try {
             await Fullscreen(document.documentElement);
 
-            subject =  new Subject();
-            await new Session(subject).Run();
+            appController = new AppController();
+            await appController.Run();
         } catch (e) {
             // @ts-ignore
             window.alert(e.toString());
@@ -70,10 +69,10 @@ const pollForAPIHandle =window.setInterval(() => {
             indicatorApiAvailableEl.classList.add('active');
         else {
             indicatorApiAvailableEl.classList.remove('active');
-            if (subject) await subject.StopGazeDetection();
+            if (appController) await appController.StopGazeDetection();
         }
 
-        startGazeDetectionButton.disabled = !ready || (subject !== undefined && subject.GazeDetectionActive);
+        startGazeDetectionButton.disabled = !ready || (appController !== undefined && appController.GazeDetectionActive);
 
     } )();
 
