@@ -2,6 +2,7 @@ import EventEmitter from "eventemitter3";
 
 import {GazeDetector, iGazeDetectorResult} from "./GazeDetector";
 import {save_gaze_model} from "./apiService";
+import { ui } from "./UI";
 
 
 export class Subject extends EventEmitter {
@@ -83,10 +84,9 @@ export class Subject extends EventEmitter {
             return;
         this.isGazeDetectionActive = true;
         if (!this.gazeDetector)
-            this.gazeDetector = new GazeDetector(<HTMLVideoElement>document.querySelector("#vidCap"),
-                <HTMLDivElement>document.querySelector(".landmark_selector"));
+            this.gazeDetector = new GazeDetector(ui.vidCap, ui.landmarkSelector);
 
-        const vidcap_overlay = <HTMLDivElement>document.getElementById('vidCapOverlay');
+        const vidcap_overlay = ui.vidCapOverlay;
 
         this.gazeDetector.on('ProcessedFrame', () => {
                 // @ts-ignore

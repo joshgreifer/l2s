@@ -5,6 +5,7 @@ import {LandMarkDetector} from "./LandMarkDetector";
 import {FaceLandmarker} from "@mediapipe/tasks-vision";
 import {ContinuousTrainer} from "./ContinuousTrainer";
 import {GazeElement} from "./GazeElement";
+import { ui } from "./UI";
 import {Coord, PixelCoord} from "./util/Coords";
 import {post_data} from "./apiService";
 
@@ -331,7 +332,7 @@ export class GazeDetector extends EventEmitter {
 
         this.landmarkDetector = new LandMarkDetector(videoCaptureElement);
 
-        const plotsDiv: HTMLDivElement = document.querySelector('#plots') as HTMLDivElement;
+        const plotsDiv: HTMLDivElement = ui.plotsDiv;
 
 
         this.videoCaptureElement = videoCaptureElement;
@@ -361,8 +362,8 @@ export class GazeDetector extends EventEmitter {
             this_.target_pos = this_.next_target_pos
         });
 
-        this.containerDiv = <HTMLDivElement>document.querySelector('.vidcap')
-        this.overlayCanvas = <HTMLCanvasElement>document.querySelector('#overlayCanvas')
+        this.containerDiv = ui.vidCapContainer;
+        this.overlayCanvas = ui.overlayCanvas;
         this.overlayCtx = this.overlayCanvas.getContext("2d") as CanvasRenderingContext2D;
         // Append in this order for z-order (gaze above target)
         document.documentElement.appendChild(targetElement);
