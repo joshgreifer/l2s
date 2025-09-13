@@ -9,21 +9,18 @@
 <body>
 
 <div class="app-container">
-    <div class="header">
+    <header class="header">
         <span class="version">v0.0.4</span>
-        <span class="page-tabs">
-<!--            <button class="page-tab" page="page-face">Gaze Detection</button>-->
-        </span>
+        <span class="page-tabs"></span>
 
         <div style="float: right">
             <span class="api-avail-indicator">Server status: </span>
             <button id="startGazeDetectionButton" disabled>Start detection</button>
         </div>
-    </div>
-    <div class="pages">
+    </header>
+    <main class="pages">
 
         <div class="page" id="page-face" title="Gaze Detection">
-            <!-- Face Detection -->
             <div class="vidcap">
                 <div id="vidCapOverlay" class="overlay">vidCapOverlay</div>
                 <video id="vidCap" height="480" autoplay></video>
@@ -35,14 +32,9 @@
                 <li>c: Toggle calibration</li>
                 <li>s: Save calibration</li>
             </ul>
-
             <div class="landmark_selector">
-                <div class="groups">
-
-                </div>
-                <div class="checkboxes">
-
-                </div>
+                <div class="groups"></div>
+                <div class="checkboxes"></div>
             </div>
         </div>
         <div class="page" id="page-training" title="Training">
@@ -50,12 +42,12 @@
                 <scope-element id="loss-display" width="640px" height="400px" title="Loss"></scope-element>
             </div>
         </div>
-    </div>
+    </main>
 </div>
 
-<div class="footer">
+<footer class="footer">
     <div class="notification"></div>
-</div>
+</footer>
 <script src="/ort/ort.min.js"></script>
 <script type="module" src="index.js"></script>
 
