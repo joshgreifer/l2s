@@ -15,8 +15,9 @@ export class WebOnnxAdapter {
     env.wasm.simd = true;
     env.wasm.numThreads = 4;
     env.wasm.proxy = true;
-    // ORT expects its wasm assets relative to this path
-    env.wasm.wasmPaths = '/ort';
+    // ORT expects its wasm assets relative to this path.
+    // The Vite build copies the WASM binaries into /assets.
+    env.wasm.wasmPaths = '/assets';
 
     const sessionOptions: ort.InferenceSession.SessionOptions = {
       executionProviders: ['webgpu', 'wasm'],

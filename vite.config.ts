@@ -49,7 +49,12 @@ export default defineConfig({
           src: '../static/**/*',
           dest: '.' // copies all files from static to dist/static/
         },
-        { src: '../node_modules/onnxruntime-web/dist/*', dest: 'ort' }
+        {
+          // Ensure ONNX Runtime's WASM binaries are available under /assets/
+          // so that the application can load them via absolute URLs.
+          src: '../node_modules/onnxruntime-web/dist/*.wasm',
+          dest: 'assets'
+        }
       ]
     })
   ]
