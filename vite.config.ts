@@ -52,8 +52,8 @@ export default defineConfig({
         {
           // Ensure ONNX Runtime's WASM binaries are available under /assets/
           // so that the application can load them via absolute URLs.
-          src: '../node_modules/onnxruntime-web/dist/*.wasm',
-          dest: 'assets'
+          src: '../node_modules/onnxruntime-web/dist/*',
+          dest: 'ort'
         }
       ]
     })
