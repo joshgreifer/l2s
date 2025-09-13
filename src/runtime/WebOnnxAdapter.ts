@@ -10,14 +10,14 @@ export class WebOnnxAdapter {
     // Keep it simple: single-threaded, no proxy workers. (Threaded is fine too, but this removes that variable.)
     const env = (window as any).ort?.env ?? ort.env;
     env.logLevel = 'verbose';
-    // env.wasm.simd = true;
-    // env.wasm.numThreads = 1;
-    // env.wasm.proxy = false;
+    env.wasm.simd = true;
+    env.wasm.numThreads = 4;
+    env.wasm.proxy = true;
 
     this.session = await ort.InferenceSession.create(modelUrl, {
-      // executionProviders: ['wasm'],
-      // graphOptimizationLevel: 'all',
-      // extra: { 'session.use_ort_model_bytes_directly': '1' },
+      executionProviders: ['webgpu'],
+      graphOptimizationLevel: 'all',
+      extra: { 'session.use_ort_model_bytes_directly': '1' },
     });
 
     // --- SMOKE TEST ---

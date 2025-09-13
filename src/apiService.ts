@@ -87,7 +87,7 @@ export async function post_data(batch: BatchItem[]) : Promise<iGazeDetectorAddDa
             losses: { h_loss, v_loss, loss }
         };
     }
-
+    console.log("Using Python backend, ONNX model not available.", batch);
     const api_response = await fetch(`/api/gaze/data`, {
 
         method: 'post',
