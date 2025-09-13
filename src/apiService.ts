@@ -1,8 +1,8 @@
-import {
+import type {
     BatchItem,
     iGazeDetectorAddDataResult,
     iGazeDetectorTrainResult
-} from "./GazeDetector";
+} from "./training/Trainer";
 import { webOnnx } from "./runtime/WebOnnxAdapter";
 
 let data_index = 0;
