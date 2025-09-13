@@ -1,80 +1,52 @@
-
 // For diagnostics, export Luis response
 
 import {AppController} from "./AppController";
-
-
 import {TabNavigator} from "./util/nav";
 import {apiAvailable} from "./apiService";
 import {Fullscreen} from "./util/util";
+import {getDomRefs, DomRefs} from "./domRefs";
 
-// status fields and start button in UI
+class App {
+    private appController: AppController | undefined;
+    private dom: DomRefs;
+    private pollHandle: number;
 
-let statusDiv: HTMLDivElement;
-let startGazeDetectionButton!: HTMLButtonElement;
-let indicatorApiAvailableEl: HTMLDivElement;
+    constructor() {
+        this.dom = getDomRefs();
+        this.appController = undefined;
+        TabNavigator.switchToPage('page-face');
 
+        this.dom.startGazeDetectionButton.addEventListener("click", async () => {
+            this.dom.startGazeDetectionButton.disabled = true;
+            try {
+                await Fullscreen(document.documentElement);
+                this.appController = new AppController();
+                await this.appController.Run();
+            } catch (e) {
+                // @ts-ignore
+                window.alert(e.toString());
+            }
+            this.dom.startGazeDetectionButton.disabled = false;
+        });
 
-function setUpDomElementVars() {
-    startGazeDetectionButton = <HTMLButtonElement>document.querySelector("#startGazeDetectionButton");
+        this.pollHandle = window.setInterval(async () => {
+            const ready = await apiAvailable();
+            if (ready)
+                this.dom.indicatorApiAvailableEl.classList.add('active');
+            else {
+                this.dom.indicatorApiAvailableEl.classList.remove('active');
+                if (this.appController) await this.appController.StopGazeDetection();
+            }
 
-    statusDiv = <HTMLDivElement>document.querySelector("#statusDiv");
-
-    indicatorApiAvailableEl = <HTMLDivElement>document.querySelector('.api-avail-indicator');
-
-
-
+            this.dom.startGazeDetectionButton.disabled =
+                !ready || (this.appController !== undefined && this.appController.GazeDetectionActive);
+        }, 1000);
+    }
 }
 
+function init() {
+    new App();
+}
 
-
-TabNavigator.switchToPage('page-face');
-
-
-let appController: AppController | undefined = undefined;
-
-(async () => {
-
-
-
-    setUpDomElementVars();
-
-
-    startGazeDetectionButton.addEventListener("click", async function () {
-
-        startGazeDetectionButton.disabled = true;
-
-        try {
-            await Fullscreen(document.documentElement);
-
-            appController = new AppController();
-            await appController.Run();
-        } catch (e) {
-            // @ts-ignore
-            window.alert(e.toString());
-        }
-
-        startGazeDetectionButton.disabled = false;
-
-    });
-
-})();
-
-const pollForAPIHandle =window.setInterval(() => {
-
-    (async () => {
-
-        const ready = await apiAvailable();
-        if (ready)
-            indicatorApiAvailableEl.classList.add('active');
-        else {
-            indicatorApiAvailableEl.classList.remove('active');
-            if (appController) await appController.StopGazeDetection();
-        }
-
-        startGazeDetectionButton.disabled = !ready || (appController !== undefined && appController.GazeDetectionActive);
-
-    } )();
-
-}, 1000);
+document.addEventListener('DOMContentLoaded', init);
 
