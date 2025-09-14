@@ -46,8 +46,8 @@ class RingBufferDataset<T> {
 }
 
 export class Trainer extends EventEmitter implements IGazeTrainer {
-    private readonly MAX_BACKLOG_ITEMS = 30; // ~1s of data @30fps
-    private dataset = new RingBufferDataset<BatchItem>(this.MAX_BACKLOG_ITEMS);
+    private readonly DATASET_CAPACITY = 2048; // maximum number of samples to retain
+    private dataset = new RingBufferDataset<BatchItem>(this.DATASET_CAPACITY);
     private trainingActive = false;
     private trainingLoop?: Promise<void>;
 
