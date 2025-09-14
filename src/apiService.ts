@@ -6,7 +6,32 @@ import type {
 import { webOnnx } from "./runtime/WebOnnxAdapter";
 
 let data_index = 0;
-const modelBias: [number, number] = [0, 0];
+let modelBias: [number, number] = [0, 0];
+
+let savedMlp: ArrayBuffer | null = null;
+
+try {
+    if (typeof localStorage !== "undefined") {
+        const raw = localStorage.getItem("gaze_mlp_trained");
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed.bias) && parsed.bias.length === 2) {
+                modelBias[0] = parsed.bias[0];
+                modelBias[1] = parsed.bias[1];
+            }
+            if (parsed.mlp) {
+                const arr = Uint8Array.from(parsed.mlp as number[]);
+                savedMlp = arr.buffer;
+            }
+        }
+    }
+} catch (err) {
+    console.warn("Failed to load saved gaze model", err);
+}
+
+export function getSavedGazeModel(): ArrayBuffer | null {
+    return savedMlp;
+}
 
 export async function apiAvailable(): Promise<boolean> {
     return webOnnx.ready;
@@ -14,12 +39,21 @@ export async function apiAvailable(): Promise<boolean> {
 
 export async function save_gaze_model(): Promise<boolean> {
     try {
-        const data = JSON.stringify({ bias: modelBias });
-        const blob = new Blob([data], { type: "application/json" });
+        const mlp = await webOnnx.exportMlpModel?.();
+        if (!mlp) throw new Error("No MLP model available");
+        const payload = {
+            bias: modelBias,
+            mlp: Array.from(new Uint8Array(mlp)),
+        };
+        const json = JSON.stringify(payload);
+        if (typeof localStorage !== "undefined") {
+            localStorage.setItem("gaze_mlp_trained", json);
+        }
+        const blob = new Blob([json], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "gaze_model.json";
+        a.download = "gaze_mlp_trained.json";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

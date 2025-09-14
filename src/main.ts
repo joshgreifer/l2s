@@ -6,7 +6,7 @@ import { DataAcquisitionService } from "./services/DataAcquisitionService";
 
 import "./util/index";
 import { TabNavigator } from "./util/nav";
-import { apiAvailable } from "./apiService";
+import { apiAvailable, getSavedGazeModel } from "./apiService";
 import { Fullscreen } from "./util/util";
 import { webOnnx } from "./runtime/WebOnnxAdapter";
 import { PixelCoord } from "./util/Coords";
@@ -55,7 +55,7 @@ function monitorApiStatus() {
 }
 
 export async function bootstrap() {
-    await webOnnx.init();
+    await webOnnx.init(getSavedGazeModel() ?? undefined);
     await webOnnx.predict(Array.from({ length: 478 }, () => [0, 0, 0] as PixelCoord));
     initUI();
     monitorApiStatus();
