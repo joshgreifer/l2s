@@ -1,6 +1,6 @@
 import EventEmitter from "eventemitter3";
 
-import { post_data, train } from "../apiService";
+import { train } from "../apiService";
 import { Coord, PixelCoord } from "../util/Coords";
 
 export interface iGazeDetectorTrainResult {
@@ -17,7 +17,7 @@ export interface iGazeDetectorAddDataResult {
 
 export type BatchItem = {
     landmarks: PixelCoord[];   // [[x,y,z], ...]
-    target: [number, number];   // screen-space target coordinates
+    target?: [number, number];   // screen-space target coordinates
 };
 
 export interface IGazeTrainer extends EventEmitter {
@@ -84,11 +84,6 @@ export class Trainer extends EventEmitter implements IGazeTrainer {
         // Ensure that only valid samples with a target are stored.
         if (!item.target) return;
         this.dataset.add(item);
-        void post_data([item]).then((features) => {
-            if (features) {
-                this.emit('prediction', features);
-            }
-        });
     }
 
     private readonly BATCH_SIZE = 64;

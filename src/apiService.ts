@@ -81,8 +81,11 @@ export async function train(
     let n = 0;
 
     for (let e = 0; e < epochs; e++) {
-        for (const item of batch) {
-            const [gx0, gy0] = await webOnnx.predict(item.landmarks);
+        const preds = await webOnnx.predict(batch.map((b) => b.landmarks));
+        for (let i = 0; i < batch.length; i++) {
+            const item = batch[i];
+            if (!item.target) continue;
+            const [gx0, gy0] = preds[i];
             const gx = gx0 + modelBias[0];
             const gy = gy0 + modelBias[1];
             const [tx, ty] = item.target;
@@ -103,21 +106,25 @@ export async function train(
 }
 
 export async function post_data(
-    batch: BatchItem[],
+    item: BatchItem,
 ): Promise<iGazeDetectorAddDataResult | undefined> {
     if (!webOnnx.ready) {
-        console.warn("ONNX model not ready; cannot process gaze data locally.", batch);
+        console.warn("ONNX model not ready; cannot process gaze data locally.", item);
         return undefined;
     }
 
-    const last = batch[batch.length - 1];
-    const [gx0, gy0] = await webOnnx.predict(last.landmarks);
+    const [gx0, gy0] = (await webOnnx.predict([item.landmarks]))[0];
     const gx = gx0 + modelBias[0];
     const gy = gy0 + modelBias[1];
-    const [tx, ty] = last.target;
-    const h_loss = Math.abs(gx - tx);
-    const v_loss = Math.abs(gy - ty);
-    const loss = (h_loss + v_loss) / 2;
+    let h_loss = 0;
+    let v_loss = 0;
+    let loss = 0;
+    if (item.target) {
+        const [tx, ty] = item.target;
+        h_loss = Math.abs(gx - tx);
+        v_loss = Math.abs(gy - ty);
+        loss = (h_loss + v_loss) / 2;
+    }
     return {
         data_index: data_index++,
         gaze: { x: gx, y: gy },

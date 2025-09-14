@@ -4,7 +4,7 @@ vi.mock("./runtime/WebOnnxAdapter", () => {
     return {
         webOnnx: {
             ready: true,
-            predict: vi.fn().mockResolvedValue([1, 2]),
+            predict: vi.fn().mockResolvedValue([[1, 2]]),
             exportMlpModel: vi.fn().mockResolvedValue(new ArrayBuffer(4)),
         },
     };
@@ -38,7 +38,7 @@ describe("apiService", () => {
         const sample: BatchItem = { landmarks, target: [3, 4] };
         const fetchSpy = vi.fn();
         (globalThis as any).fetch = fetchSpy;
-        const result = await post_data([sample]);
+        const result = await post_data(sample);
         expect(result).toBeDefined();
         expect(result?.gaze).toEqual({ x: 1, y: 2 });
         expect(result?.losses).toEqual({ h_loss: 2, v_loss: 2, loss: 2 });

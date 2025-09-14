@@ -41,11 +41,11 @@ export class WebOnnxAdapter {
       this.mlpSession = await ort.InferenceSession.create('/models/gaze_mlp.onnx', sessionOptions);
     }
 
-    // --- SMOKE TEST --- end-to-end
-    const dummy = new ort.Tensor('float32', new Float32Array(478 * 3), [1, 478, 3]);
+    // --- SMOKE TEST --- ensure batching works end-to-end
+    const dummy = new ort.Tensor('float32', new Float32Array(2 * 478 * 3), [2, 478, 3]);
     const pcaOutMap = await this.pcaSession.run({ [this.pcaSession.inputNames[0]]: dummy });
     const pcaOut = pcaOutMap[this.pcaSession.outputNames[0]] as ort.Tensor;
-    const mlpInput = new ort.Tensor('float32', pcaOut.data as Float32Array, [1, 32]);
+    const mlpInput = new ort.Tensor('float32', pcaOut.data as Float32Array, [2, 32]);
     const mlpOutMap = await this.mlpSession.run({ [this.mlpSession.inputNames[0]]: mlpInput });
     const mlpOut = mlpOutMap[this.mlpSession.outputNames[0]] as ort.Tensor;
     console.log('ORT smoke:', {
@@ -56,27 +56,36 @@ export class WebOnnxAdapter {
     this.ready = true;
   }
 
-  async predict(landmarks: PixelCoord[]): Promise<[number, number]> {
+  async predict(batch: PixelCoord[][]): Promise<[number, number][]> {
     if (!this.pcaSession || !this.mlpSession) throw new Error('ORT sessions not initialized');
-    if (landmarks.length !== 478) throw new Error(`Expected 478 landmarks, got ${landmarks.length}`);
-
-    const flat = new Float32Array(478 * 3);
-    for (let i = 0; i < 478; i++) {
-      const lm = landmarks[i];
-      flat[i * 3] = lm[0] ?? 0;
-      flat[i * 3 + 1] = lm[1] ?? 0;
-      flat[i * 3 + 2] = lm[2] ?? 0;
+    if (batch.length === 0) return [];
+    const B = batch.length;
+    const flat = new Float32Array(B * 478 * 3);
+    for (let b = 0; b < B; b++) {
+      const landmarks = batch[b];
+      if (landmarks.length !== 478) throw new Error(`Expected 478 landmarks, got ${landmarks.length}`);
+      for (let i = 0; i < 478; i++) {
+        const lm = landmarks[i];
+        const base = b * 478 * 3 + i * 3;
+        flat[base] = lm[0] ?? 0;
+        flat[base + 1] = lm[1] ?? 0;
+        flat[base + 2] = lm[2] ?? 0;
+      }
     }
 
-    const pcaInput = new ort.Tensor('float32', flat, [1, 478, 3]);
+    const pcaInput = new ort.Tensor('float32', flat, [B, 478, 3]);
     const pcaOutMap = await this.pcaSession.run({ [this.pcaSession.inputNames[0]]: pcaInput });
     const pcaOut = pcaOutMap[this.pcaSession.outputNames[0]] as ort.Tensor;
 
-    const mlpInput = new ort.Tensor('float32', pcaOut.data as Float32Array, [1, 32]);
+    const mlpInput = new ort.Tensor('float32', pcaOut.data as Float32Array, [B, 32]);
     const mlpOutMap = await this.mlpSession.run({ [this.mlpSession.inputNames[0]]: mlpInput });
     const mlpOut = mlpOutMap[this.mlpSession.outputNames[0]] as ort.Tensor;
     const v = mlpOut.data as Float32Array;
-    return [v[0], v[1]];
+    const out: [number, number][] = [];
+    for (let b = 0; b < B; b++) {
+      out.push([v[b * 2], v[b * 2 + 1]]);
+    }
+    return out;
   }
 
   async exportMlpModel(): Promise<ArrayBuffer | null> {
