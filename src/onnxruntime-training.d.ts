@@ -11,7 +11,8 @@ declare module 'onnxruntime-web' {
   export { TrainingArtifacts };
   export class TrainingSession {
     static create(artifacts: TrainingArtifacts): Promise<TrainingSession>;
-    trainStep(inputs: Tensor[]): Promise<void>;
+    // trainStep may return output tensors such as the loss value.
+    trainStep(inputs: Tensor[]): Promise<Tensor[]>;
     optimizerStep(): Promise<void>;
     lazyResetGrad(): Promise<void>;
   }

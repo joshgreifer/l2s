@@ -106,6 +106,50 @@ export class TrainableOnnxAdapter {
     await this.mlpTrainer.optimizerStep();
     await this.mlpTrainer.lazyResetGrad();
   }
+
+  // Train the MLP model using mini-batches over multiple epochs. Returns an
+  // array of average losses, one per epoch, to mimic the progress reporting of
+  // the Python reference implementation.
+  async trainMlpBatch(
+    features: Float32Array,
+    target: Float32Array,
+    batchSize: number,
+    epochs: number,
+  ): Promise<number[]> {
+    if (!this.mlpTrainer) throw new Error('MLP trainer not initialized');
+
+    const sampleCount = features.length / 32;
+    if (sampleCount !== target.length / 2) {
+      throw new Error('feature and target sample counts differ');
+    }
+
+    const epochLosses: number[] = [];
+
+    for (let epoch = 0; epoch < epochs; epoch++) {
+      let totalLoss = 0;
+      let batches = 0;
+
+      for (let i = 0; i < sampleCount; i += batchSize) {
+        const end = Math.min(i + batchSize, sampleCount);
+        const featSlice = features.subarray(i * 32, end * 32);
+        const tgtSlice = target.subarray(i * 2, end * 2);
+
+        const input = new ort.Tensor('float32', featSlice, [end - i, 32]);
+        const label = new ort.Tensor('float32', tgtSlice, [end - i, 2]);
+
+        const [loss] = await this.mlpTrainer.trainStep([input, label]);
+        totalLoss += (loss.data as Float32Array)[0];
+        await this.mlpTrainer.optimizerStep();
+        await this.mlpTrainer.lazyResetGrad();
+        batches++;
+      }
+
+      epochLosses.push(batches ? totalLoss / batches : 0);
+      // Placeholder for learning-rate scheduler support if available in ORT.
+    }
+
+    return epochLosses;
+  }
 }
 
 export const trainableOnnx = new TrainableOnnxAdapter();
