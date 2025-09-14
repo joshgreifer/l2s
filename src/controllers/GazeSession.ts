@@ -4,6 +4,7 @@ import { GazeDetector } from "../GazeDetector";
 import { save_gaze_model } from "../apiService";
 import { ui } from "../UI";
 import { Trainer, IGazeTrainer } from "../training/Trainer";
+import { trainingPage } from "./TrainingPage";
 
 export class GazeSession extends EventEmitter {
   private isGazeDetectionActive = false;
@@ -34,6 +35,7 @@ export class GazeSession extends EventEmitter {
       this.gazeDetector = undefined;
     }
     this.trainer = undefined;
+    trainingPage?.setTrainer(undefined);
     this.isGazeDetectionActive = false;
   }
 
@@ -69,6 +71,7 @@ export class GazeSession extends EventEmitter {
       });
     }
     this.gazeDetector.Trainer = this.trainer;
+    trainingPage?.setTrainer(this.trainer);
 
     const vidcap_overlay = ui.vidCapOverlay;
 

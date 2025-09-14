@@ -88,9 +88,25 @@ export class Trainer extends EventEmitter implements IGazeTrainer {
     private async runTrainingLoop() {
         while (this.trainingActive) {
             const batch = this.dataset.toArray();
-            if (batch.length) {
-                const losses = await train(batch, 1, "train");
-                this.emit('loss', losses);
+            const total = batch.length;
+            if (total) {
+                this.emit('epoch-start', { total });
+                let h_sum = 0;
+                let v_sum = 0;
+                let loss_sum = 0;
+                for (let i = 0; i < total; i++) {
+                    const losses = await train([batch[i]], 1, "train");
+                    h_sum += losses.h_loss;
+                    v_sum += losses.v_loss;
+                    loss_sum += losses.loss;
+                    this.emit('progress', { current: i + 1, total, losses: {
+                            h_loss: h_sum / (i + 1),
+                            v_loss: v_sum / (i + 1),
+                            loss: loss_sum / (i + 1)
+                        } });
+                }
+                const avg = { h_loss: h_sum / total, v_loss: v_sum / total, loss: loss_sum / total };
+                this.emit('loss', avg);
                 this.epochCounter++;
                 this.emit('epoch', this.epochCounter);
             }
