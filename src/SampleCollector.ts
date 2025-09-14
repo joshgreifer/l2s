@@ -25,11 +25,12 @@ export class SampleCollector extends EventEmitter {
     }
 
     public collect(landmarks: NormalizedLandmark[], target: Coord | undefined): void {
+        if (!target) return;
         const landmarks_as_array: PixelCoord[] = landmarks.map((p) => [p.x, p.y, p.z]);
-        const target_model = target ? screenToModelCoords(target) : null;
+        const target_model = screenToModelCoords(target);
         this.trainer?.addSample({
             landmarks: landmarks_as_array,
-            target: target_model ? [target_model.x, target_model.y] : null,
+            target: [target_model.x, target_model.y],
         });
     }
 }

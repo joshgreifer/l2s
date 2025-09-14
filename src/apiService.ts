@@ -82,7 +82,6 @@ export async function train(
 
     for (let e = 0; e < epochs; e++) {
         for (const item of batch) {
-            if (!item.target) continue;
             const [gx0, gy0] = await webOnnx.predict(item.landmarks);
             const gx = gx0 + modelBias[0];
             const gy = gy0 + modelBias[1];
@@ -115,7 +114,7 @@ export async function post_data(
     const [gx0, gy0] = await webOnnx.predict(last.landmarks);
     const gx = gx0 + modelBias[0];
     const gy = gy0 + modelBias[1];
-    const [tx, ty] = last.target ?? [0, 0];
+    const [tx, ty] = last.target;
     const h_loss = Math.abs(gx - tx);
     const v_loss = Math.abs(gy - ty);
     const loss = (h_loss + v_loss) / 2;

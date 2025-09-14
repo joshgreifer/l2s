@@ -17,7 +17,7 @@ export interface iGazeDetectorAddDataResult {
 
 export type BatchItem = {
     landmarks: PixelCoord[];   // [[x,y,z], ...]
-    target: number[] | null;   // screen-space target (or omit)
+    target: [number, number];   // screen-space target coordinates
 };
 
 export interface IGazeTrainer extends EventEmitter {
@@ -39,6 +39,10 @@ class RingBufferDataset<T> {
 
     toArray(): T[] {
         return this.buf.slice();
+    }
+
+    get length(): number {
+        return this.buf.length;
     }
 
     get last(): T | undefined {
@@ -77,6 +81,8 @@ export class Trainer extends EventEmitter implements IGazeTrainer {
     }
 
     addSample(item: BatchItem) {
+        // Ensure that only valid samples with a target are stored.
+        if (!item.target) return;
         this.dataset.add(item);
         void post_data([item]).then((features) => {
             if (features) {
@@ -85,27 +91,40 @@ export class Trainer extends EventEmitter implements IGazeTrainer {
         });
     }
 
+    private readonly BATCH_SIZE = 64;
+
     private async runTrainingLoop() {
         while (this.trainingActive) {
-            const batch = this.dataset.toArray();
-            const total = batch.length;
-            if (total) {
-                this.emit('epoch-start', { total });
+            const data = this.dataset.toArray();
+            // Shuffle data to avoid training on ordered samples
+            for (let i = data.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [data[i], data[j]] = [data[j], data[i]];
+            }
+
+            const totalBatches = Math.ceil(data.length / this.BATCH_SIZE);
+            if (totalBatches) {
+                this.emit('epoch-start', { total: totalBatches });
                 let h_sum = 0;
                 let v_sum = 0;
-                let loss_sum = 0;
-                for (let i = 0; i < total; i++) {
-                    const losses = await train([batch[i]], 1, "train");
-                    h_sum += losses.h_loss;
-                    v_sum += losses.v_loss;
-                    loss_sum += losses.loss;
-                    this.emit('progress', { current: i + 1, total, losses: {
-                            h_loss: h_sum / (i + 1),
-                            v_loss: v_sum / (i + 1),
-                            loss: loss_sum / (i + 1)
-                        } });
+                let n = 0;
+                for (let i = 0; i < totalBatches; i++) {
+                    const batch = data.slice(i * this.BATCH_SIZE, (i + 1) * this.BATCH_SIZE);
+                    const losses = await train(batch, 1, "train");
+                    h_sum += losses.h_loss * batch.length;
+                    v_sum += losses.v_loss * batch.length;
+                    n += batch.length;
+                    this.emit('progress', {
+                        current: i + 1,
+                        total: totalBatches,
+                        losses: {
+                            h_loss: h_sum / n,
+                            v_loss: v_sum / n,
+                            loss: (h_sum / n + v_sum / n) / 2,
+                        },
+                    });
                 }
-                const avg = { h_loss: h_sum / total, v_loss: v_sum / total, loss: loss_sum / total };
+                const avg = { h_loss: h_sum / n, v_loss: v_sum / n, loss: (h_sum / n + v_sum / n) / 2 };
                 this.emit('loss', avg);
                 this.epochCounter++;
                 this.emit('epoch', this.epochCounter);
