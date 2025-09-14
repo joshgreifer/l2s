@@ -21,7 +21,25 @@ def generate_ort_artifacts(model_path: str, outdir: str, prefix: str, loss_input
 
     os.makedirs(outdir, exist_ok=True)
     m = onnx.load(model_path)
-    param_names = [init.name for init in m.graph.initializer]
+    # param_names = [init.name for init in m.graph.initializer]
+
+    # ``generate_artifacts`` treats every name in ``requires_grad`` as a trainable
+    # parameter. Some ONNX models contain non-float initializers (e.g. ``shape``
+    # inputs for ``Reshape``) which cannot participate in gradient computation.
+    # Attempting to request gradients for such tensors results in errors like
+    # ``failed to find NodeArg by name: <name>_grad`` during artifact generation.
+    #
+    # Restrict the list of parameters that require gradients to floating point
+    # tensors only so that constant integer tensors are automatically excluded.
+    float_types = {
+        onnx.TensorProto.FLOAT,
+        onnx.TensorProto.DOUBLE,
+        onnx.TensorProto.FLOAT16,
+        onnx.TensorProto.BFLOAT16,
+    }
+    param_names = [
+        init.name for init in m.graph.initializer if init.data_type in float_types
+    ]
 
     artifacts.generate_artifacts(
         model=m,
