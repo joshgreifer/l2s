@@ -16,17 +16,6 @@ import onnx
 import torch
 from onnx import TensorProto, helper, numpy_helper
 
-# ``onnxruntime-training`` is only available on Linux/WSL.
-if os.name != "posix":
-    raise RuntimeError(
-        "onnxruntime-training is only available on Linux or WSL."
-    )
-try:  # pragma: no cover - import side effects
-    from onnxruntime.training import artifacts
-except ImportError as e:  # pragma: no cover - environment guard
-    raise ImportError(
-        "onnxruntime-training is required. Install with 'pip install onnxruntime-training'."
-    ) from e
 
 from pkg.model_pca_mlp import GazePCAMLP
 
@@ -106,29 +95,6 @@ def export_mlp(model: GazePCAMLP, out_path: str, opset: int) -> None:
     print(f"✅ exported MLP ONNX: {out_path}")
 
 
-# ---------------------------------------------------------------------------
-# ORT artifact generation
-# ---------------------------------------------------------------------------
-
-def generate_ort_artifacts(model_path: str, outdir: str, prefix: str, loss_input: str) -> None:
-    """Generate ONNX Runtime training artifacts for ``model_path``."""
-
-    os.makedirs(outdir, exist_ok=True)
-    m = onnx.load(model_path)
-    param_names = [init.name for init in m.graph.initializer]
-
-    artifacts.generate_artifacts(
-        model=m,
-        requires_grad=param_names,
-        frozen_params=None,
-        loss=artifacts.LossType.MSELoss,
-        optimizer=artifacts.OptimType.AdamW,
-        artifact_directory=outdir,
-        prefix=prefix,
-        loss_input_names=[loss_input],
-    )
-
-    print(f"✅ wrote ORT artifacts for {prefix} to {outdir}")
 
 
 # ---------------------------------------------------------------------------
@@ -164,8 +130,8 @@ def build_config(pca_model: str, mlp_checkpoint: str, state_dict: dict) -> Simpl
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("pca_model", help="Path to PCA joblib file")
-    p.add_argument("mlp_checkpoint", help="Path to MLP .pt checkpoint")
+    p.add_argument("--pca_model", help="Path to PCA joblib file")
+    p.add_argument("--mlp_checkpoint", help="Path to MLP .pt checkpoint")
     p.add_argument("--out", default="cache", help="Output directory (default: cache)")
     p.add_argument("--opset", type=int, default=19)
     args = p.parse_args()
@@ -178,7 +144,7 @@ def main() -> None:
     pca_out = os.path.join(checkpoints, "pca.onnx")
     mlp_out = os.path.join(checkpoints, "gaze_mlp.onnx")
 
-    state_dict = torch.load(args.mlp_checkpoint, map_location="cpu")
+    state_dict = torch.load(args.mlp_checkpoint, map_location="cpu", weights_only=False)
     cfg = build_config(args.pca_model, args.mlp_checkpoint, state_dict)
     model = GazePCAMLP(cfg).eval()
 
@@ -187,8 +153,8 @@ def main() -> None:
     export_pca(pca, pca_out, args.opset)
     export_mlp(model, mlp_out, args.opset)
 
-    generate_ort_artifacts(pca_out, ort_dir, "pca_", "pca")
-    generate_ort_artifacts(mlp_out, ort_dir, "gaze_", "gaze")
+    # generate_ort_artifacts(pca_out, ort_dir, "pca_", "pca")
+    # generate_ort_artifacts(mlp_out, ort_dir, "gaze_", "gaze")
 
 
 if __name__ == "__main__":
