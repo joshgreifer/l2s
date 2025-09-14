@@ -78,19 +78,19 @@ export class Trainer extends EventEmitter implements IGazeTrainer {
 
     addSample(item: BatchItem) {
         this.dataset.add(item);
+        void post_data([item]).then((features) => {
+            if (features) {
+                this.emit('prediction', features);
+            }
+        });
     }
 
     private async runTrainingLoop() {
         while (this.trainingActive) {
             const batch = this.dataset.toArray();
-            const last = this.dataset.last;
-            if (batch.length && last) {
+            if (batch.length) {
                 const losses = await train(batch, 1, "train");
                 this.emit('loss', losses);
-                const features = await post_data([last]);
-                if (features) {
-                    this.emit('prediction', features);
-                }
                 this.epochCounter++;
                 this.emit('epoch', this.epochCounter);
             }
