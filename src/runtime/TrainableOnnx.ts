@@ -94,6 +94,7 @@ export class TrainableOnnxAdapter {
       return this.pcaFallback;
     }
     const input = new ort.Tensor('float32', landmarks, [batchSize, 478, 3]);
+    // @ts-ignore
     const [output] = await this.pcaTrainer.evalStep([input]);
     return output.data as Float32Array;
   }
