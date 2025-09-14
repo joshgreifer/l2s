@@ -37,7 +37,11 @@
             </div>
         </div>
         <div class="page" id="page-training" title="Training">
-            <!-- TODO Training loss plotting and progress bar -->
+            <div class="progress-container">
+                <progress id="trainingProgress" value="0" max="1"></progress>
+                <div class="losses">H: <span id="hLoss">0</span> V: <span id="vLoss">0</span> Loss: <span id="loss">0</span></div>
+            </div>
+            <canvas id="lossPlot" width="400" height="200"></canvas>
         </div>
     </main>
 </div>

@@ -169,3 +169,20 @@
         .landmark_selector .checkboxes {
             grid-area: checkboxes;
         }
+
+        #page-training {
+            padding: 10px;
+        }
+
+        #trainingProgress {
+            width: 100%;
+            height: 20px;
+        }
+
+        #lossPlot {
+            width: 100%;
+            height: 200px;
+            border: 1px solid var(--page-border-color);
+            display: block;
+            margin-top: 10px;
+        }
