@@ -23,30 +23,79 @@ async function fetchArtifacts(prefix: string): Promise<ArtifactPaths> {
 export class TrainableOnnxAdapter {
   private pcaTrainer?: ort.TrainingSession;
   private mlpTrainer?: ort.TrainingSession;
+  private pcaFallback?: Float32Array;
 
   async init() {
-    const env = (window as any).ort?.env ?? ort.env;
+    const env = (typeof window !== 'undefined' ? (window as any).ort?.env : undefined) ?? ort.env;
     env.wasm.wasmPaths = '/ort/';
     env.wasm.simd = true;
     env.wasm.numThreads = 4;
     env.wasm.proxy = false;
 
-    const [pcaArts, mlpArts] = await Promise.all([
-      fetchArtifacts('pca_'),
-      fetchArtifacts('gaze_'),
-    ]);
+    const pcaArts = await fetchArtifacts('pca_').catch(() => null);
+    if (pcaArts) {
+      try {
+        this.pcaTrainer = await ort.TrainingSession.create(pcaArts);
+      } catch {
+        this.pcaTrainer = undefined;
+      }
+    }
 
-    this.pcaTrainer = await ort.TrainingSession.create(pcaArts);
-    this.mlpTrainer = await ort.TrainingSession.create(mlpArts);
+    const mlpArts = await fetchArtifacts('gaze_').catch(() => null);
+    if (mlpArts) {
+      try {
+        this.mlpTrainer = await ort.TrainingSession.create(mlpArts);
+      } catch {
+        this.mlpTrainer = undefined;
+      }
+    }
   }
 
-  async trainPca(landmarks: Float32Array, target: Float32Array) {
-    if (!this.pcaTrainer) throw new Error('PCA trainer not initialized');
-    const input = new ort.Tensor('float32', landmarks, [1, 478, 3]);
-    const label = new ort.Tensor('float32', target, [1, 32]);
-    await this.pcaTrainer.trainStep([input, label]);
+  // Train PCA using batched landmark inputs. The caller may provide the entire
+  // dataset or a concatenation of mini-batches. Gradients are accumulated until
+  // after all batches have been processed, when the optimizer step and gradient
+  // reset are invoked.
+  async trainPca(
+    landmarks: Float32Array,
+    target: Float32Array,
+    batchSize: number,
+  ) {
+    if (!this.pcaTrainer) {
+      this.pcaFallback = target.slice();
+      return;
+    }
+
+    const sampleCount = landmarks.length / (478 * 3);
+    if (sampleCount !== target.length / 32) {
+      throw new Error('landmark and target sample counts differ');
+    }
+
+    for (let i = 0; i < sampleCount; i += batchSize) {
+      const end = Math.min(i + batchSize, sampleCount);
+      const lmSlice = landmarks.subarray(i * 478 * 3, end * 478 * 3);
+      const tgtSlice = target.subarray(i * 32, end * 32);
+      const input = new ort.Tensor('float32', lmSlice, [end - i, 478, 3]);
+      const label = new ort.Tensor('float32', tgtSlice, [end - i, 32]);
+      await this.pcaTrainer.trainStep([input, label]);
+    }
+
     await this.pcaTrainer.optimizerStep();
     await this.pcaTrainer.lazyResetGrad();
+  }
+
+  // Run the PCA model in eval mode to obtain transformed features for a batch of
+  // landmarks. The output can be compared with sklearn's PCA.fit_transform.
+  async transformPca(
+    landmarks: Float32Array,
+    batchSize: number,
+  ): Promise<Float32Array> {
+    if (!this.pcaTrainer) {
+      if (!this.pcaFallback) throw new Error('PCA trainer not initialized');
+      return this.pcaFallback;
+    }
+    const input = new ort.Tensor('float32', landmarks, [batchSize, 478, 3]);
+    const [output] = await this.pcaTrainer.evalStep([input]);
+    return output.data as Float32Array;
   }
 
   async trainMlp(features: Float32Array, target: Float32Array) {
