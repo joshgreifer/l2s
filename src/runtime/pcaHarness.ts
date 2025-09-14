@@ -42,7 +42,7 @@ function fakeLandmarks(sampleCount: number): Float32Array {
 }
 
 function runSklearn(landmarks: Float32Array) {
-  const proc = spawnSync('python3', ['scripts/sklearn_pca.py'], {
+  const proc = spawnSync('python', ['scripts/sklearn_pca.py'], {
     input: JSON.stringify({ landmarks: Array.from(landmarks) }),
     encoding: 'utf-8',
   });
@@ -69,6 +69,7 @@ export async function compareWithSklearn(sampleCount = 64) {
   return { skVariance, onnxVariance };
 }
 
+// @ts-ignore
 if (import.meta.main) {
   compareWithSklearn().then(({ skVariance, onnxVariance }) => {
     console.log('sklearn', skVariance);
