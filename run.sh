@@ -1,3 +1,2 @@
-export PYTHONHASHSEED=857
-export USE_TORCH=1
-python dist/app.py
+#!/usr/bin/env bash
+npm run dev

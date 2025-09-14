@@ -1,3 +1,4 @@
+import './styles/main.css';
 import { GazeElement } from "./GazeElement";
 import { GazeSession } from "./controllers/GazeSession";
 import { InputHandler } from "./services/InputHandler";
