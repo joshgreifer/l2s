@@ -35,21 +35,23 @@ def export_pca(pca, out_path: str, opset: int) -> None:
 
     pca_model = convert_sklearn(
         pca,
-        initial_types=[("flat", FloatTensorType([1, n_features]))],
+        initial_types=[("flat", FloatTensorType([None, n_features]))],
         target_opset=opset,
     )
 
-    # Adjust graph to accept [1, 478, 3] input and flatten internally
+    # Adjust graph to accept [B, 478, 3] input and flatten internally
     pca_model.graph.output[0].name = "pca"
     if pca_model.graph.node:
         pca_model.graph.node[-1].output[0] = "pca"
 
-    landmarks = helper.make_tensor_value_info("landmarks", TensorProto.FLOAT, [1, 478, 3])
+    landmarks = helper.make_tensor_value_info(
+        "landmarks", TensorProto.FLOAT, [None, 478, 3]
+    )
     pca_model.graph.input.insert(0, landmarks)
     del pca_model.graph.input[1]
 
     shape_const = numpy_helper.from_array(
-        np.array([1, n_features], dtype=np.int64), name="shape"
+        np.array([-1, n_features], dtype=np.int64), name="shape"
     )
     pca_model.graph.initializer.append(shape_const)
     reshape = helper.make_node("Reshape", ["landmarks", "shape"], ["flat"])
