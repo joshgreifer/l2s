@@ -56,7 +56,7 @@ function monitorApiStatus() {
 
 export async function bootstrap() {
     await webOnnx.init(getSavedGazeModel() ?? undefined);
-    await webOnnx.predict(Array.from({ length: 478 }, () => [0, 0, 0] as PixelCoord));
+    await webOnnx.predict([Array.from({ length: 478 }, () => [0, 0, 0] as PixelCoord)]);
     initUI();
     monitorApiStatus();
 }

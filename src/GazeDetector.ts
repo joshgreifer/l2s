@@ -57,7 +57,9 @@ export class GazeDetector extends EventEmitter {
         this.sampleCollector = new SampleCollector();
 
         this.sampleCollector.on('prediction', (features: iGazeDetectorAddDataResult) => {
-            this.training_loss = features.losses.loss;
+            if (features.losses.loss) {
+                this.training_loss = features.losses.loss;
+            }
             features.gaze = modelToScreenCoords(features.gaze);
             this.emit('GazeDetectionComplete', features);
         });
