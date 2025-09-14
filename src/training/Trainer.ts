@@ -25,6 +25,7 @@ export interface IGazeTrainer extends EventEmitter {
     stopTraining(): Promise<void>;
     addSample(sample: BatchItem): void;
     readonly isTraining: boolean;
+    readonly epoch: number;
 }
 
 class RingBufferDataset<T> {
@@ -50,14 +51,20 @@ export class Trainer extends EventEmitter implements IGazeTrainer {
     private dataset = new RingBufferDataset<BatchItem>(this.DATASET_CAPACITY);
     private trainingActive = false;
     private trainingLoop?: Promise<void>;
+    private epochCounter = 0;
 
     public get isTraining(): boolean {
         return this.trainingActive;
     }
 
+    public get epoch(): number {
+        return this.epochCounter;
+    }
+
     startTraining() {
         if (this.trainingActive) return;
         this.trainingActive = true;
+        this.epochCounter = 0;
         this.trainingLoop = this.runTrainingLoop();
     }
 
@@ -84,6 +91,8 @@ export class Trainer extends EventEmitter implements IGazeTrainer {
                 if (features) {
                     this.emit('prediction', features);
                 }
+                this.epochCounter++;
+                this.emit('epoch', this.epochCounter);
             }
             await new Promise((r) => setTimeout(r, 0));
         }

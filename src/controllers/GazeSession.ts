@@ -8,6 +8,7 @@ import { Trainer, IGazeTrainer } from "../training/Trainer";
 export class GazeSession extends EventEmitter {
   private isGazeDetectionActive = false;
   private trainer?: IGazeTrainer;
+  private epoch = 0;
 
   public get GazeDetectionActive(): boolean {
     return this.isGazeDetectionActive;
@@ -47,7 +48,10 @@ export class GazeSession extends EventEmitter {
   }
 
   public async StartTraining() {
-    if (this.trainer && !this.trainer.isTraining) this.trainer.startTraining();
+    if (this.trainer && !this.trainer.isTraining) {
+      this.epoch = 0;
+      this.trainer.startTraining();
+    }
   }
 
   public async StopTraining() {
@@ -58,14 +62,23 @@ export class GazeSession extends EventEmitter {
     if (this.isGazeDetectionActive) return;
     this.isGazeDetectionActive = true;
     if (!this.gazeDetector) this.gazeDetector = new GazeDetector(ui.vidCap, ui.landmarkSelector);
-    if (!this.trainer) this.trainer = new Trainer();
+    if (!this.trainer) {
+      this.trainer = new Trainer();
+      this.trainer.on("epoch", (n: number) => {
+        this.epoch = n;
+      });
+    }
     this.gazeDetector.Trainer = this.trainer;
 
     const vidcap_overlay = ui.vidCapOverlay;
 
     this.gazeDetector.on("ProcessedFrame", () => {
+      let text = `${this.gazeDetector!.FrameRate.toFixed(0)} FPS`;
+      if (this.trainer?.isTraining) {
+        text += ` Epoch ${this.epoch}`;
+      }
       // @ts-ignore
-      vidcap_overlay.innerText = `${this.gazeDetector!.FrameRate.toFixed(0)} FPS`;
+      vidcap_overlay.innerText = text;
     });
 
     await this.gazeDetector.init();
