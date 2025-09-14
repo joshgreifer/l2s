@@ -5,8 +5,18 @@ vi.mock("./runtime/WebOnnxAdapter", () => {
         webOnnx: {
             ready: true,
             predict: vi.fn().mockResolvedValue([1, 2]),
+            exportMlpModel: vi.fn().mockResolvedValue(new ArrayBuffer(4)),
         },
     };
+});
+
+const localStore: Record<string, string> = {};
+// @ts-ignore
+vi.stubGlobal("localStorage", {
+    getItem: (k: string) => (k in localStore ? localStore[k] : null),
+    setItem: (k: string, v: string) => {
+        localStore[k] = v;
+    },
 });
 
 import { apiAvailable, post_data, train, save_gaze_model } from "./apiService";

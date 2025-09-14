@@ -8,7 +8,7 @@ export class WebOnnxAdapter {
   private mlpSession?: ort.InferenceSession;
   ready = false;
 
-  async init() {
+  async init(mlpBytes?: ArrayBuffer) {
     // Configure ORT's environment. Keep it single-threaded and avoid proxy
     // workers. When proxy workers were enabled, the main bundle was executed
     // in a WebWorker that lacks a DOM, which surfaced as "document is not
@@ -31,7 +31,15 @@ export class WebOnnxAdapter {
 
     this.pcaSession = await ort.InferenceSession.create('/models/pca.onnx', sessionOptions);
 
-    this.mlpSession = await ort.InferenceSession.create('/models/gaze_mlp.onnx', sessionOptions);
+    try {
+      if (mlpBytes) {
+        this.mlpSession = await ort.InferenceSession.create(mlpBytes, sessionOptions);
+      } else {
+        throw new Error('no saved model');
+      }
+    } catch {
+      this.mlpSession = await ort.InferenceSession.create('/models/gaze_mlp.onnx', sessionOptions);
+    }
 
     // --- SMOKE TEST --- end-to-end
     const dummy = new ort.Tensor('float32', new Float32Array(478 * 3), [1, 478, 3]);
@@ -69,6 +77,20 @@ export class WebOnnxAdapter {
     const mlpOut = mlpOutMap[this.mlpSession.outputNames[0]] as ort.Tensor;
     const v = mlpOut.data as Float32Array;
     return [v[0], v[1]];
+  }
+
+  async exportMlpModel(): Promise<ArrayBuffer | null> {
+    if (!this.mlpSession) return null;
+    const anySession = this.mlpSession as any;
+    if (typeof anySession.exportModel === 'function') {
+      return await anySession.exportModel();
+    }
+    try {
+      const res = await fetch('/models/gaze_mlp.onnx');
+      return await res.arrayBuffer();
+    } catch {
+      return null;
+    }
   }
 }
 
