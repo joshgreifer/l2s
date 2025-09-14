@@ -19,7 +19,7 @@ export class WebOnnxAdapter {
     env.wasm.numThreads = 4;
     env.wasm.proxy = false;
     // ORT expects its wasm assets relative to this path. Vite copies the
-    // binaries into /ort at the static root, so reference that location
+    // binaries into /ort at the public root, so reference that location
     // directly.
     env.wasm.wasmPaths = '/ort';
 

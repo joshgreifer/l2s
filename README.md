@@ -1,20 +1,13 @@
 # L2S
 
-This repository provides a lightweight Flask server that delivers the web
-client for the Learn2See project.
+This repository provides the web client for the Learn2See project, built with Vite.
 
 ## Run Locally
 
-1. Create a Python environment (see `install_python_env.sh`).
-2. Ensure you have the latest version of npm installed.
-3. `npm install`
-4. Run the server (see `run.sh`).
-5. Point a browser at <http://localhost:5000>.
+1. Ensure you have the latest version of npm installed.
+2. `npm install`
+3. `npm run dev` to start the development server.
+4. `npm run build` to generate production assets.
 
-## Architecture
-
-Model training and calibration now occur entirely in the client. The Flask
-application serves only static files and, optionally, pre-trained models. Any
-model files placed in `cache/checkpoints` can be downloaded via
-`/models/<filename>`.
-
+Pre-trained ONNX models should be placed in `public/models` so they are available at `/models/` at runtime.
+Legacy Python utilities are preserved under `python/` for reference but are not served by the application.
