@@ -1,5 +1,5 @@
 import EventEmitter from "eventemitter3";
-import {Coord, screenToModelCoords} from "./util/Coords";
+import {Coord, PixelCoord, screenToModelCoords} from "./util/Coords";
 import type {iGazeDetectorAddDataResult, IGazeTrainer} from "./training/Trainer";
 import {NormalizedLandmark} from "@mediapipe/tasks-vision";
 
@@ -25,7 +25,7 @@ export class SampleCollector extends EventEmitter {
     }
 
     public collect(landmarks: NormalizedLandmark[], target: Coord | undefined): void {
-        const landmarks_as_array = landmarks.map((p) => [p.x, p.y, p.z]);
+        const landmarks_as_array: PixelCoord[] = landmarks.map((p) => [p.x, p.y, p.z]);
         const target_model = target ? screenToModelCoords(target) : null;
         this.trainer?.addSample({
             landmarks: landmarks_as_array,
