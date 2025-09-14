@@ -21,7 +21,7 @@ export class WebOnnxAdapter {
     // ORT expects its wasm assets relative to this path. Vite copies the
     // binaries into /ort at the public root, so reference that location
     // directly.
-    env.wasm.wasmPaths = '/ort';
+    env.wasm.wasmPaths = '/ort/';
 
     const sessionOptions: ort.InferenceSession.SessionOptions = {
       executionProviders: ['webgpu', 'wasm'],
