@@ -2,6 +2,10 @@
 // If you load ORT via <script src=".../ort.min.js">, use: const ort = (window as any).ort;
 import * as ort from 'onnxruntime-web';
 import { PixelCoord } from '../util/Coords';
+/**
+ * Thin wrapper around onnxruntime-web that loads PCA and MLP models and
+ * provides batched prediction and model export utilities for gaze inference.
+ */
 
 export class WebOnnxAdapter {
   private pcaSession?: ort.InferenceSession;

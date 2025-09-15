@@ -1,3 +1,7 @@
+/*
+ * High-level controller for a gaze detection session.
+ * Manages detector lifecycle, training, and model persistence.
+ */
 import EventEmitter from "eventemitter3";
 
 import { GazeDetector } from "../GazeDetector";

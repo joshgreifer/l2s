@@ -1,3 +1,7 @@
+/*
+ * Application entry point. Sets up UI components, initializes the ONNX runtime,
+ * and starts gaze detection when requested by the user.
+ */
 import './styles/main.css';
 import { GazeElement } from "./GazeElement";
 import { GazeSession } from "./controllers/GazeSession";
