@@ -6,6 +6,17 @@ vi.mock("./runtime/WebOnnxAdapter", () => {
             ready: true,
             predict: vi.fn().mockResolvedValue([[1, 2]]),
             exportMlpModel: vi.fn().mockResolvedValue(new ArrayBuffer(4)),
+            init: vi.fn().mockResolvedValue(undefined),
+        },
+    };
+});
+
+vi.mock("./runtime/TrainableOnnx", () => {
+    return {
+        trainableOnnx: {
+            transformPca: vi.fn(async (_l: Float32Array, batch: number) => new Float32Array(batch * 32)),
+            trainMlpBatch: vi.fn(async () => [0.1]),
+            exportMlpModel: vi.fn(async () => new ArrayBuffer(4)),
         },
     };
 });
@@ -46,12 +57,9 @@ describe("apiService", () => {
     });
 
     it("train returns updated losses", async () => {
-        const landmarks: [number, number, number][] = Array.from(
-            { length: 478 },
-            () => [0, 0, 0],
-        );
-        const batch: BatchItem[] = [{ landmarks, target: [3, 4] }];
-        const losses = await train(batch, 1, "train");
+        const landmarks = new Float32Array(478 * 3);
+        const targets = new Float32Array([3, 4]);
+        const losses = await train(landmarks, targets, 1, "train");
         expect(losses.loss).toBeGreaterThanOrEqual(0);
     });
 

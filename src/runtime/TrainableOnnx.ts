@@ -116,6 +116,7 @@ export class TrainableOnnxAdapter {
     target: Float32Array,
     batchSize: number,
     epochs: number,
+    learningRate: number,
   ): Promise<number[]> {
     if (!this.mlpTrainer) throw new Error('MLP trainer not initialized');
 
@@ -137,8 +138,9 @@ export class TrainableOnnxAdapter {
 
         const input = new ort.Tensor('float32', featSlice, [end - i, 32]);
         const label = new ort.Tensor('float32', tgtSlice, [end - i, 2]);
+        const lr = new ort.Tensor('float32', new Float32Array([learningRate]), [1]);
 
-        const [loss] = await this.mlpTrainer.trainStep([input, label]);
+        const [loss] = await this.mlpTrainer.trainStep([input, label, lr]);
         totalLoss += (loss.data as Float32Array)[0];
         await this.mlpTrainer.optimizerStep();
         await this.mlpTrainer.lazyResetGrad();
@@ -150,6 +152,15 @@ export class TrainableOnnxAdapter {
     }
 
     return epochLosses;
+  }
+
+  async exportMlpModel(): Promise<ArrayBuffer | null> {
+    if (!this.mlpTrainer) return null;
+    const anyTrainer = this.mlpTrainer as any;
+    if (typeof anyTrainer.exportModel === 'function') {
+      return await anyTrainer.exportModel();
+    }
+    return null;
   }
 }
 
