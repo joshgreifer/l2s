@@ -9,7 +9,7 @@ async function main() {
   const features = new Float32Array(Array.from({ length: 64 }, (_, i) => i / 100));
   const targets = new Float32Array([0, 0, 1, 1]);
 
-  const losses = await adapter.trainMlpBatch(features, targets, 1, 3);
+  const losses = await adapter.trainMlpBatch(features, targets, 1, 3, 0.01);
   losses.forEach((loss, epoch) => {
     console.log(`Epoch ${epoch + 1}: loss=${loss}`);
   });

@@ -4,10 +4,10 @@ import type {
     iGazeDetectorTrainResult,
 } from "./training/Trainer";
 import { webOnnx } from "./runtime/WebOnnxAdapter";
+import { trainableOnnx } from "./runtime/TrainableOnnx";
+import type { PixelCoord } from "./util/Coords";
 
 let data_index = 0;
-let modelBias: [number, number] = [0, 0];
-
 let savedMlp: ArrayBuffer | null = null;
 
 try {
@@ -15,10 +15,6 @@ try {
         const raw = localStorage.getItem("gaze_mlp_trained");
         if (raw) {
             const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed.bias) && parsed.bias.length === 2) {
-                modelBias[0] = parsed.bias[0];
-                modelBias[1] = parsed.bias[1];
-            }
             if (parsed.mlp) {
                 const arr = Uint8Array.from(parsed.mlp as number[]);
                 savedMlp = arr.buffer;
@@ -42,7 +38,6 @@ export async function save_gaze_model(): Promise<boolean> {
         const mlp = await webOnnx.exportMlpModel?.();
         if (!mlp) throw new Error("No MLP model available");
         const payload = {
-            bias: modelBias,
             mlp: Array.from(new Uint8Array(mlp)),
         };
         const json = JSON.stringify(payload);
@@ -66,41 +61,43 @@ export async function save_gaze_model(): Promise<boolean> {
 }
 
 export async function train(
-    batch: BatchItem[],
+    landmarks: Float32Array,
+    targets: Float32Array,
     epochs: number,
     action: "train" | "calibrate",
 ): Promise<iGazeDetectorTrainResult> {
     if (!webOnnx.ready) {
-        console.warn("ONNX model not ready; cannot train locally.", { batch, epochs, action });
+        console.warn("ONNX model not ready; cannot train locally.", { epochs, action });
         return { h_loss: 0, v_loss: 0, loss: 0 };
     }
 
+    const sampleCount = targets.length / 2;
+    const features = await trainableOnnx.transformPca(landmarks, sampleCount);
     const lr = action === "calibrate" ? 0.05 : 0.01;
-    let h_sum = 0;
-    let v_sum = 0;
-    let n = 0;
+    await trainableOnnx.trainMlpBatch(features, targets, sampleCount, epochs, lr);
 
-    for (let e = 0; e < epochs; e++) {
-        const preds = await webOnnx.predict(batch.map((b) => b.landmarks));
-        for (let i = 0; i < batch.length; i++) {
-            const item = batch[i];
-            if (!item.target) continue;
-            const [gx0, gy0] = preds[i];
-            const gx = gx0 + modelBias[0];
-            const gy = gy0 + modelBias[1];
-            const [tx, ty] = item.target;
-            const dx = tx - gx;
-            const dy = ty - gy;
-            modelBias[0] += lr * dx;
-            modelBias[1] += lr * dy;
-            h_sum += Math.abs(dx);
-            v_sum += Math.abs(dy);
-            n++;
-        }
+    const mlpBytes = await trainableOnnx.exportMlpModel();
+    if (mlpBytes) {
+        savedMlp = mlpBytes;
+        await webOnnx.init(mlpBytes);
     }
 
-    const h_loss = n ? h_sum / n : 0;
-    const v_loss = n ? v_sum / n : 0;
+    let h_sum = 0;
+    let v_sum = 0;
+    for (let i = 0; i < sampleCount; i++) {
+        const sample: PixelCoord[] = [];
+        for (let j = 0; j < 478; j++) {
+            const base = i * 478 * 3 + j * 3;
+            sample.push([landmarks[base], landmarks[base + 1], landmarks[base + 2]]);
+        }
+        const [gx, gy] = (await webOnnx.predict([sample]))[0];
+        const tx = targets[i * 2];
+        const ty = targets[i * 2 + 1];
+        h_sum += Math.abs(gx - tx);
+        v_sum += Math.abs(gy - ty);
+    }
+    const h_loss = sampleCount ? h_sum / sampleCount : 0;
+    const v_loss = sampleCount ? v_sum / sampleCount : 0;
     const loss = (h_loss + v_loss) / 2;
     return { h_loss, v_loss, loss };
 }
@@ -113,9 +110,7 @@ export async function post_data(
         return undefined;
     }
 
-    const [gx0, gy0] = (await webOnnx.predict([item.landmarks]))[0];
-    const gx = gx0 + modelBias[0];
-    const gy = gy0 + modelBias[1];
+    const [gx, gy] = (await webOnnx.predict([item.landmarks]))[0];
     let h_loss = 0;
     let v_loss = 0;
     let loss = 0;

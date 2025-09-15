@@ -62,7 +62,7 @@ test('trainMlpBatch runs over epochs and returns average losses', async () => {
   const features = new Float32Array(4 * 32);
   const targets = new Float32Array(4 * 2);
 
-  const losses = await t.trainMlpBatch(features, targets, 2, 2);
+  const losses = await t.trainMlpBatch(features, targets, 2, 2, 0.01);
   expect(trainStep).toHaveBeenCalledTimes(4);
   expect(optimizerStep).toHaveBeenCalledTimes(4);
   expect(lazyResetGrad).toHaveBeenCalledTimes(4);
