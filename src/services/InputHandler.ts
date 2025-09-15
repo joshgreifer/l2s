@@ -28,13 +28,17 @@ export class InputHandler {
           : "Data acquisition stopped."
       );
     } else if (evt.key === "c") {
-      if (this.session.isTrainingActive) await this.session.StopTraining();
-      else await this.session.StartTraining();
-      notifications.notify(
-        this.session.isTrainingActive
-          ? "Calibration started."
-          : "Calibration stopped."
-      );
+      if (this.session.isTrainingActive) {
+        await this.session.StopTraining();
+        notifications.notify("Calibration stopped.");
+      } else {
+        const started = this.session.StartTraining();
+        notifications.notify(
+          started
+            ? "Calibration started."
+            : "Not enough data to start training."
+        );
+      }
     }
   };
 
