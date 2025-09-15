@@ -10,12 +10,12 @@ interface ArtifactPaths {
 }
 
 async function fetchArtifacts(prefix: string): Promise<ArtifactPaths> {
-  const base = `/ort/${prefix}`;
+  const base = '/models/ort_artifacts/' + prefix;
   const [train, evalModel, optimizer, init] = await Promise.all([
-    fetch(`${base}training_model.onnx`).then(r => r.arrayBuffer()),
-    fetch(`${base}eval_model.onnx`).then(r => r.arrayBuffer()),
-    fetch(`${base}optimizer.onnx`).then(r => r.arrayBuffer()),
-    fetch(`${base}checkpoint.onnx`).then(r => r.arrayBuffer()),
+    fetch(base + 'training_model.onnx').then(r => r.arrayBuffer()),
+    fetch(base + 'eval_model.onnx').then(r => r.arrayBuffer()),
+    fetch(base + 'optimizer.onnx').then(r => r.arrayBuffer()),
+    fetch(base + 'checkpoint.onnx').then(r => r.arrayBuffer()),
   ]);
   return { train, eval: evalModel, optimizer, init };
 }
