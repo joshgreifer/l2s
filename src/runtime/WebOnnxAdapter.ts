@@ -7,6 +7,7 @@ export class WebOnnxAdapter {
   private pcaSession?: ort.InferenceSession;
   private mlpSession?: ort.InferenceSession;
   ready = false;
+  private _queue: Promise<unknown> = Promise.resolve();
 
   async init(mlpBytes?: ArrayBuffer) {
     // Configure ORT's environment. Keep it single-threaded and avoid proxy
@@ -56,7 +57,7 @@ export class WebOnnxAdapter {
     this.ready = true;
   }
 
-  async predict(batch: PixelCoord[][]): Promise<[number, number][]> {
+  private async _predict(batch: PixelCoord[][]): Promise<[number, number][]> {
     if (!this.pcaSession || !this.mlpSession) throw new Error('ORT sessions not initialized');
     if (batch.length === 0) return [];
     const B = batch.length;
@@ -86,6 +87,12 @@ export class WebOnnxAdapter {
       out.push([v[b * 2], v[b * 2 + 1]]);
     }
     return out;
+  }
+
+  async predict(batch: PixelCoord[][]): Promise<[number, number][]> {
+    const run = this._queue.then(() => this._predict(batch));
+    this._queue = run.then(() => {}, () => {});
+    return run;
   }
 
   async exportMlpModel(): Promise<ArrayBuffer | null> {
