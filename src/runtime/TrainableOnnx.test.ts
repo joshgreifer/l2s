@@ -3,10 +3,30 @@ import { expect, test, vi } from 'vitest';
 vi.mock('onnxruntime-web', () => ({
   Tensor: class {
     constructor(public type: string, public data: Float32Array, public dims: number[]) {}
-  }
+  },
+  TrainingSession: { create: vi.fn(async () => ({})) },
+  env: { wasm: {} },
 }));
 
 import { TrainableOnnxAdapter } from './TrainableOnnx';
+
+test('init fetches ONNX artifacts from models path', async () => {
+  const fetchMock = vi.fn(async () => ({ arrayBuffer: async () => new ArrayBuffer(0) } as any));
+  (globalThis as any).fetch = fetchMock as any;
+  const t = new TrainableOnnxAdapter();
+  await t.init();
+  const expected = [
+    '/models/ort_artifacts/pca_training_model.onnx',
+    '/models/ort_artifacts/pca_eval_model.onnx',
+    '/models/ort_artifacts/pca_optimizer.onnx',
+    '/models/ort_artifacts/pca_checkpoint.onnx',
+    '/models/ort_artifacts/gaze_training_model.onnx',
+    '/models/ort_artifacts/gaze_eval_model.onnx',
+    '/models/ort_artifacts/gaze_optimizer.onnx',
+    '/models/ort_artifacts/gaze_checkpoint.onnx',
+  ];
+  expect(fetchMock.mock.calls.map(c => c[0])).toEqual(expected);
+});
 
 test('TrainableOnnxAdapter exposes init and supports batched PCA training', async () => {
   const t = new TrainableOnnxAdapter();
