@@ -21,7 +21,7 @@ export type BatchItem = {
 };
 
 export interface IGazeTrainer extends EventEmitter {
-    startTraining(): void;
+    startTraining(): boolean;
     stopTraining(): Promise<void>;
     addSample(sample: BatchItem): void;
     readonly isTraining: boolean;
@@ -65,11 +65,13 @@ export class Trainer extends EventEmitter implements IGazeTrainer {
         return this.epochCounter;
     }
 
-    startTraining() {
-        if (this.trainingActive) return;
+    startTraining(): boolean {
+        if (this.trainingActive) return false;
+        if (this.dataset.length < this.BATCH_SIZE) return false;
         this.trainingActive = true;
         this.epochCounter = 0;
         this.trainingLoop = this.runTrainingLoop();
+        return true;
     }
 
     async stopTraining() {

@@ -13,6 +13,7 @@ import { TabNavigator } from "./util/nav";
 import { apiAvailable, getSavedGazeModel } from "./apiService";
 import { Fullscreen } from "./util/util";
 import { webOnnx } from "./runtime/WebOnnxAdapter";
+import { trainableOnnx } from "./runtime/TrainableOnnx";
 import { PixelCoord } from "./util/Coords";
 import { ui } from "./UI";
 
@@ -59,7 +60,10 @@ function monitorApiStatus() {
 }
 
 export async function bootstrap() {
-    await webOnnx.init(getSavedGazeModel() ?? undefined);
+    await Promise.all([
+        webOnnx.init(getSavedGazeModel() ?? undefined),
+        trainableOnnx.init(),
+    ]);
     await webOnnx.predict([Array.from({ length: 478 }, () => [0, 0, 0] as PixelCoord)]);
     initUI();
     monitorApiStatus();

@@ -53,11 +53,12 @@ export class GazeSession extends EventEmitter {
     }
   }
 
-  public async StartTraining() {
+  public StartTraining(): boolean {
     if (this.trainer && !this.trainer.isTraining) {
       this.epoch = 0;
-      this.trainer.startTraining();
+      return this.trainer.startTraining();
     }
+    return false;
   }
 
   public async StopTraining() {
