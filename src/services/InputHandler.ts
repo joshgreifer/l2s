@@ -1,3 +1,7 @@
+/*
+ * Handles global keyboard shortcuts to control data capture, training,
+ * and model saving during a gaze session.
+ */
 import { GazeSession } from "../controllers/GazeSession";
 import { DataAcquisitionService } from "./DataAcquisitionService";
 import { notifications } from "./NotificationService";

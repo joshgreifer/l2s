@@ -1,3 +1,7 @@
+/*
+ * Coordinates webcam capture, landmark detection and gaze prediction.
+ * Manages training targets and emits events with prediction results.
+ */
 import EventEmitter from "eventemitter3";
 
 import {LandMarkDetector} from "./LandMarkDetector";

@@ -1,3 +1,7 @@
+/*
+ * Controls the on-screen target used for collecting labelled gaze samples
+ * during calibration.
+ */
 import { GazeDetector } from "../GazeDetector";
 
 export class DataAcquisitionService {
