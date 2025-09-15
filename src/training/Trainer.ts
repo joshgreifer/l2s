@@ -105,7 +105,22 @@ export class Trainer extends EventEmitter implements IGazeTrainer {
                 let n = 0;
                 for (let i = 0; i < totalBatches; i++) {
                     const batch = data.slice(i * this.BATCH_SIZE, (i + 1) * this.BATCH_SIZE);
-                    const losses = await train(batch, 1, "train");
+                    const landmarks = new Float32Array(batch.length * 478 * 3);
+                    const targets = new Float32Array(batch.length * 2);
+                    for (let b = 0; b < batch.length; b++) {
+                        const item = batch[b];
+                        for (let j = 0; j < 478; j++) {
+                            const lm = item.landmarks[j];
+                            const base = b * 478 * 3 + j * 3;
+                            landmarks[base] = lm[0] ?? 0;
+                            landmarks[base + 1] = lm[1] ?? 0;
+                            landmarks[base + 2] = lm[2] ?? 0;
+                        }
+                        const t = item.target!;
+                        targets[b * 2] = t[0];
+                        targets[b * 2 + 1] = t[1];
+                    }
+                    const losses = await train(landmarks, targets, 1, "train");
                     h_sum += losses.h_loss * batch.length;
                     v_sum += losses.v_loss * batch.length;
                     n += batch.length;
