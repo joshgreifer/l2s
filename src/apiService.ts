@@ -80,22 +80,29 @@ export async function train(
     if (mlpBytes) {
         savedMlp = mlpBytes;
         await webOnnx.init(mlpBytes);
+
     }
 
-    let h_sum = 0;
-    let v_sum = 0;
+    const batch: PixelCoord[][] = [];
     for (let i = 0; i < sampleCount; i++) {
         const sample: PixelCoord[] = [];
         for (let j = 0; j < 478; j++) {
             const base = i * 478 * 3 + j * 3;
             sample.push([landmarks[base], landmarks[base + 1], landmarks[base + 2]]);
         }
-        const [gx, gy] = (await webOnnx.predict([sample]))[0];
+        batch.push(sample);
+    }
+    const preds = await webOnnx.predict(batch);
+    let h_sum = 0;
+    let v_sum = 0;
+    for (let i = 0; i < sampleCount; i++) {
+        const [gx, gy] = preds[i];
         const tx = targets[i * 2];
         const ty = targets[i * 2 + 1];
         h_sum += Math.abs(gx - tx);
         v_sum += Math.abs(gy - ty);
     }
+
     const h_loss = sampleCount ? h_sum / sampleCount : 0;
     const v_loss = sampleCount ? v_sum / sampleCount : 0;
     const loss = (h_loss + v_loss) / 2;
