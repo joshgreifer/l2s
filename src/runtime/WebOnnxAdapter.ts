@@ -41,11 +41,11 @@ export class WebOnnxAdapter {
       this.mlpSession = await ort.InferenceSession.create('/models/gaze_mlp.onnx', sessionOptions);
     }
 
-    // --- SMOKE TEST --- ensure batching works end-to-end
-    const dummy = new ort.Tensor('float32', new Float32Array(2 * 478 * 3), [2, 478, 3]);
+    // --- SMOKE TEST --- ensure the pipeline is operational
+    const dummy = new ort.Tensor('float32', new Float32Array(478 * 3), [1, 478, 3]);
     const pcaOutMap = await this.pcaSession.run({ [this.pcaSession.inputNames[0]]: dummy });
     const pcaOut = pcaOutMap[this.pcaSession.outputNames[0]] as ort.Tensor;
-    const mlpInput = new ort.Tensor('float32', pcaOut.data as Float32Array, [2, 32]);
+    const mlpInput = new ort.Tensor('float32', pcaOut.data as Float32Array, [1, 32]);
     const mlpOutMap = await this.mlpSession.run({ [this.mlpSession.inputNames[0]]: mlpInput });
     const mlpOut = mlpOutMap[this.mlpSession.outputNames[0]] as ort.Tensor;
     console.log('ORT smoke:', {

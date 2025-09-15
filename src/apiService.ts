@@ -80,6 +80,7 @@ export async function train(
     if (mlpBytes) {
         savedMlp = mlpBytes;
         await webOnnx.init(mlpBytes);
+
     }
 
     const batch: PixelCoord[][] = [];
@@ -101,6 +102,7 @@ export async function train(
         h_sum += Math.abs(gx - tx);
         v_sum += Math.abs(gy - ty);
     }
+
     const h_loss = sampleCount ? h_sum / sampleCount : 0;
     const v_loss = sampleCount ? v_sum / sampleCount : 0;
     const loss = (h_loss + v_loss) / 2;
