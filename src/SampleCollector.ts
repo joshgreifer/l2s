@@ -10,6 +10,7 @@ import { post_data } from "./apiService";
  */
 export class SampleCollector extends EventEmitter {
     private trainer: IGazeTrainer | undefined = undefined;
+    private predicting = false;
 
     public set Trainer(t: IGazeTrainer | undefined) {
         this.trainer = t;
@@ -28,12 +29,18 @@ export class SampleCollector extends EventEmitter {
                 target: [target_model.x, target_model.y],
             });
         }
+        if (this.predicting) return;
+        this.predicting = true;
         void post_data({
             landmarks: landmarks_as_array,
             target: target_model ? [target_model.x, target_model.y] : undefined,
-        }).then((features: iGazeDetectorAddDataResult | undefined) => {
-            if (features) this.emit('prediction', features);
-        });
+        })
+            .then((features: iGazeDetectorAddDataResult | undefined) => {
+                if (features) this.emit('prediction', features);
+            })
+            .finally(() => {
+                this.predicting = false;
+            });
     }
 }
 
