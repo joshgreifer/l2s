@@ -14,7 +14,7 @@ export class WebOnnxAdapter {
     // in a WebWorker that lacks a DOM, which surfaced as "document is not
     // defined" errors in the console.
     const env = (window as any).ort?.env ?? ort.env;
-    env.logLevel = 'verbose';
+    env.logLevel = 'warning';
     env.wasm.simd = true;
     env.wasm.numThreads = 4;
     env.wasm.proxy = false;
@@ -42,17 +42,17 @@ export class WebOnnxAdapter {
     }
 
     // --- SMOKE TEST --- ensure batching works end-to-end
-    const dummy = new ort.Tensor('float32', new Float32Array(2 * 478 * 3), [2, 478, 3]);
-    const pcaOutMap = await this.pcaSession.run({ [this.pcaSession.inputNames[0]]: dummy });
-    const pcaOut = pcaOutMap[this.pcaSession.outputNames[0]] as ort.Tensor;
-    const mlpInput = new ort.Tensor('float32', pcaOut.data as Float32Array, [2, 32]);
-    const mlpOutMap = await this.mlpSession.run({ [this.mlpSession.inputNames[0]]: mlpInput });
-    const mlpOut = mlpOutMap[this.mlpSession.outputNames[0]] as ort.Tensor;
-    console.log('ORT smoke:', {
-      pcaOutDims: pcaOut.dims,
-      mlpOutDims: mlpOut.dims,
-      dataLen: (mlpOut.data as Float32Array).length,
-    });
+    // const dummy = new ort.Tensor('float32', new Float32Array(2 * 478 * 3), [2, 478, 3]);
+    // const pcaOutMap = await this.pcaSession.run({ [this.pcaSession.inputNames[0]]: dummy });
+    // const pcaOut = pcaOutMap[this.pcaSession.outputNames[0]] as ort.Tensor;
+    // const mlpInput = new ort.Tensor('float32', pcaOut.data as Float32Array, [2, 32]);
+    // const mlpOutMap = await this.mlpSession.run({ [this.mlpSession.inputNames[0]]: mlpInput });
+    // const mlpOut = mlpOutMap[this.mlpSession.outputNames[0]] as ort.Tensor;
+    // console.log('ORT smoke:', {
+    //   pcaOutDims: pcaOut.dims,
+    //   mlpOutDims: mlpOut.dims,
+    //   dataLen: (mlpOut.data as Float32Array).length,
+    // });
     this.ready = true;
   }
 
