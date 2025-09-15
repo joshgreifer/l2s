@@ -14,36 +14,47 @@ export class WebOnnxAdapter {
   private _queue: Promise<unknown> = Promise.resolve();
 
   async init(mlpBytes?: ArrayBuffer) {
-    // Configure ORT's environment. Keep it single-threaded and avoid proxy
-    // workers. When proxy workers were enabled, the main bundle was executed
-    // in a WebWorker that lacks a DOM, which surfaced as "document is not
-    // defined" errors in the console.
+    // Configure ORT's environment. Prefer multi-threading only when the page
+    // is cross-origin isolated (the only scenario where SharedArrayBuffer is
+    // available) and always avoid proxy workers. When proxy workers were
+    // enabled, the main bundle was executed in a WebWorker that lacks a DOM,
+    // which surfaced as "document is not defined" errors in the console.
     const env = (window as any).ort?.env ?? ort.env;
     env.logLevel = 'warning';
     env.wasm.simd = true;
-    env.wasm.numThreads = 4;
+
+    const supportsMultiThreading =
+      typeof window !== 'undefined' &&
+      window.crossOriginIsolated === true &&
+      typeof SharedArrayBuffer !== 'undefined';
+    const hardwareConcurrency =
+      typeof navigator !== 'undefined' && typeof navigator.hardwareConcurrency === 'number'
+        ? navigator.hardwareConcurrency
+        : 1;
+
+    env.wasm.numThreads = supportsMultiThreading ? Math.min(4, Math.max(1, hardwareConcurrency)) : 1;
     env.wasm.proxy = false;
     // ORT expects its wasm assets relative to this path. Vite copies the
     // binaries into /ort at the public root, so reference that location
     // directly.
     env.wasm.wasmPaths = '/ort/';
 
-    const sessionOptions: ort.InferenceSession.SessionOptions = {
+    const createSessionOptions = (): ort.InferenceSession.SessionOptions => ({
       executionProviders: ['webgpu', 'wasm'],
       graphOptimizationLevel: 'all',
       extra: { 'session.use_ort_model_bytes_directly': '1' },
-    };
+    });
 
-    this.pcaSession = await ort.InferenceSession.create('/models/pca.onnx', sessionOptions);
+    this.pcaSession = await ort.InferenceSession.create('/models/pca.onnx', createSessionOptions());
 
     try {
       if (mlpBytes) {
-        this.mlpSession = await ort.InferenceSession.create(mlpBytes, sessionOptions);
+        this.mlpSession = await ort.InferenceSession.create(mlpBytes, createSessionOptions());
       } else {
         throw new Error('no saved model');
       }
     } catch {
-      this.mlpSession = await ort.InferenceSession.create('/models/gaze_mlp.onnx', sessionOptions);
+      this.mlpSession = await ort.InferenceSession.create('/models/gaze_mlp.onnx', createSessionOptions());
     }
 
     // --- SMOKE TEST --- ensure batching works end-to-end
